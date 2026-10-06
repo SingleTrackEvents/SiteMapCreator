@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en-AU">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Site Map Creator</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css">
+  <link rel="stylesheet" href="css/app.css">
+  <style id="page-size"></style>
+</head>
+<body>
+  <!-- Editing toolbar -->
+  <header id="topbar">
+    <div class="brand">Site Map Creator</div>
+    <button id="event-title" class="event-title" title="Edit event details">Untitled event</button>
+    <form id="search-form" class="search">
+      <input id="search-input" type="search" placeholder="Find a venue, e.g. Bright VIC" autocomplete="off">
+    </form>
+    <select id="basemap-select" title="Imagery"></select>
+    <label class="check" title="Show roads and place names over the imagery">
+      <input id="labels-toggle" type="checkbox"> Roads
+    </label>
+    <div class="spacer"></div>
+    <button id="undo-btn" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redo-btn" title="Redo (Ctrl+Shift+Z)">Redo</button>
+    <div class="menu">
+      <button id="file-btn">File</button>
+      <div class="menu-items" id="file-menu">
+        <button data-action="new">New map</button>
+        <button data-action="open">Open map file…</button>
+        <button data-action="save">Save map file</button>
+        <hr>
+        <button data-action="gpx">Import course GPX…</button>
+        <button data-action="geojson">Export GeoJSON</button>
+      </div>
+    </div>
+    <button id="print-btn" class="primary">Print layout</button>
+  </header>
+
+  <!-- Print toolbar (shown in print layout mode) -->
+  <header id="printbar">
+    <div class="brand">Print layout</div>
+    <label>Paper
+      <select id="paper-size">
+        <option value="A3">A3</option>
+        <option value="A4">A4</option>
+      </select>
+    </label>
+    <label>Orientation
+      <select id="paper-orientation">
+        <option value="landscape">Landscape</option>
+        <option value="portrait">Portrait</option>
+      </select>
+    </label>
+    <span class="hint">Pan and zoom the map to frame it. Layers switched off are left off the print.</span>
+    <div class="spacer"></div>
+    <button id="print-back">Back to editing</button>
+    <button id="print-go" class="primary">Print / Save as PDF</button>
+  </header>
+
+  <main id="workspace">
+    <aside id="library">
+      <input id="library-filter" type="search" placeholder="Filter items" autocomplete="off">
+      <div id="library-list"></div>
+    </aside>
+
+    <section id="stage">
+      <div id="page">
+        <div id="page-map-slot"><div id="map"></div></div>
+        <div id="page-panel">
+          <div class="pp-title" id="pp-title"></div>
+          <div class="pp-sub" id="pp-sub"></div>
+          <div class="pp-section" id="pp-legend-wrap">
+            <div class="pp-heading">Legend</div>
+            <div id="pp-legend"></div>
+          </div>
+          <div class="pp-section" id="pp-notes-wrap">
+            <div class="pp-heading">Notes</div>
+            <div id="pp-notes"></div>
+          </div>
+          <div class="pp-bottom">
+            <div class="pp-north" id="pp-north"></div>
+            <table class="pp-block" id="pp-block"></table>
+            <div class="pp-attrib" id="pp-attrib"></div>
+          </div>
+        </div>
+      </div>
+      <div id="status"></div>
+    </section>
+
+    <aside id="inspector">
+      <div id="inspector-body"></div>
+    </aside>
+  </main>
+
+  <footer id="layerbar"></footer>
+
+  <!-- Event details dialog -->
+  <dialog id="event-dialog">
+    <form method="dialog" id="event-form">
+      <h2>Event details</h2>
+      <p class="muted">These appear in the title block of the printed map.</p>
+      <label>Map title<input name="name" placeholder="Buffalo Stampede 2027"></label>
+      <label>Subtitle<input name="subtitle" placeholder="Event village site plan"></label>
+      <div class="row">
+        <label>Event date<input name="date" type="date"></label>
+        <label>Revision<input name="revision" placeholder="Rev A"></label>
+      </div>
+      <label>Venue<input name="venue" placeholder="Pioneer Park, Bright VIC"></label>
+      <div class="row">
+        <label>Organiser<input name="organiser" placeholder="SingleTrack Events"></label>
+        <label>Prepared by<input name="preparedBy"></label>
+      </div>
+      <label>Contact on the day<input name="contact" placeholder="Name and mobile"></label>
+      <label>Notes for the map<textarea name="notes" rows="4" placeholder="e.g. All structures pegged and weighted. Emergency access kept clear at all times."></textarea></label>
+      <div class="dialog-actions">
+        <button value="cancel" formnovalidate>Cancel</button>
+        <button value="ok" class="primary">Save details</button>
+      </div>
+    </form>
+  </dialog>
+
+  <input type="file" id="open-input" accept=".json,.sitemap.json,application/json" hidden>
+  <input type="file" id="gpx-input" accept=".gpx" hidden>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.js"></script>
+  <script src="js/catalogue.js"></script>
+  <script src="js/geo.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>
