@@ -16,7 +16,8 @@ SMC.CATEGORIES = [
   { id: 'village', name: 'Event village' },
   { id: 'aid', name: 'Aid stations and marshals' },
   { id: 'safety', name: 'Safety and emergency' },
-  { id: 'access', name: 'Access and parking' }
+  { id: 'access', name: 'Access and parking' },
+  { id: 'other', name: 'Other' }
 ];
 
 SMC.TYPES = [
@@ -29,6 +30,7 @@ SMC.TYPES = [
   { id: 'km-marker', name: 'Km marker', category: 'course', kind: 'point', color: '#ff6a13', glyph: 'KM' },
   { id: 'course-sign', name: 'Course sign', category: 'course', kind: 'point', color: '#e0a400', glyph: 'SG' },
   { id: 'road-crossing', name: 'Road crossing', category: 'course', kind: 'point', color: '#c2185b', glyph: 'RX' },
+  { id: 'gate', name: 'Gate', category: 'course', kind: 'point', color: '#6d4c41', glyph: 'GT' },
   { id: 'finish-chute', name: 'Finish chute', category: 'course', kind: 'area', color: '#ff6a13' },
 
   // Event village
@@ -54,8 +56,9 @@ SMC.TYPES = [
   { id: 'bunting', name: 'Bunting / tape', category: 'village', kind: 'line', color: '#fdd835', weight: 2, dashArray: '2 4' },
 
   // Aid stations and marshals
-  { id: 'aid-station', name: 'Aid station', category: 'aid', kind: 'point', color: '#d32f2f', glyph: 'AS', size: 32 },
-  { id: 'water-station', name: 'Water only station', category: 'aid', kind: 'point', color: '#0288d1', glyph: 'WS' },
+  { id: 'aid-station', name: 'Aid station', category: 'aid', kind: 'point', color: '#d32f2f', glyph: 'AS', size: 32, aidDetails: true },
+  { id: 'water-station', name: 'Water only station', category: 'aid', kind: 'point', color: '#0288d1', glyph: 'WS', aidDetails: true },
+  { id: 'timing', name: 'Timing point', category: 'aid', kind: 'point', color: '#f9a825', glyph: 'T' },
   { id: 'marshal', name: 'Marshal point', category: 'aid', kind: 'point', color: '#ef6c00', glyph: 'M' },
   { id: 'crew-access', name: 'Crew access point', category: 'aid', kind: 'point', color: '#6a1b9a', glyph: 'CR' },
   { id: 'cut-off', name: 'Cut-off point', category: 'aid', kind: 'point', color: '#b71c1c', glyph: 'CO' },
@@ -78,8 +81,19 @@ SMC.TYPES = [
   { id: 'road-closure', name: 'Road closure', category: 'access', kind: 'point', color: '#c62828', glyph: 'RC' },
   { id: 'traffic-control', name: 'Traffic controller', category: 'access', kind: 'point', color: '#ef6c00', glyph: 'TC' },
   { id: 'shuttle', name: 'Shuttle / bus stop', category: 'access', kind: 'point', color: '#1e88e5', glyph: 'BUS' },
-  { id: 'parking-point', name: 'Parking entry', category: 'access', kind: 'point', color: '#1e88e5', glyph: 'P' }
+  { id: 'parking-point', name: 'Parking entry', category: 'access', kind: 'point', color: '#1e88e5', glyph: 'P' },
+
+  // Other: catch-alls, mostly for things brought in from Google My Maps
+  { id: 'pin', name: 'Map pin', category: 'other', kind: 'point', color: '#455a64', glyph: '•' },
+  { id: 'other-line', name: 'Other line', category: 'other', kind: 'line', color: '#455a64', weight: 3 },
+  { id: 'other-area', name: 'Other area', category: 'other', kind: 'area', color: '#455a64' }
 ];
+
+// Services an aid station can offer (shown as checkboxes).
+SMC.AID_SERVICES = ['Water', 'Electrolyte', 'Food', 'Hot food', 'Medical', 'Drop bags', 'Crew access', 'Toilets'];
+
+// Course points within this distance of a course line get a km distance.
+SMC.ON_COURSE_METRES = 100;
 
 SMC.TYPE_BY_ID = {};
 SMC.TYPES.forEach(function (t) { SMC.TYPE_BY_ID[t.id] = t; });

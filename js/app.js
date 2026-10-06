@@ -120,13 +120,13 @@
 
   // ------------------------------------------------------------- layers
 
-  function pointIcon(type, selected) {
+  function pointIcon(type, selected, color) {
     var size = type.size || 26;
     var glyph = type.glyph || '';
     var fs = glyph.length <= 1 ? 14 : glyph.length === 2 ? 11 : 9;
     return L.divIcon({
       className: 'smc-pt-wrap',
-      html: '<div class="smc-pt' + (selected ? ' sel' : '') + '" style="background:' + type.color +
+      html: '<div class="smc-pt' + (selected ? ' sel' : '') + '" style="background:' + (color || type.color) +
         ';width:' + size + 'px;height:' + size + 'px;font-size:' + fs + 'px">' + esc(glyph) + '</div>',
       iconSize: [size, size],
       iconAnchor: [size / 2, size / 2]
@@ -155,11 +155,12 @@
     var layer;
 
     if (type.kind === 'point') {
-      layer = L.marker(item.latlng, { icon: pointIcon(type, selected), draggable: !printMode, keyboard: false });
+      layer = L.marker(item.latlng, { icon: pointIcon(type, selected, itemColor(item)), draggable: !printMode, keyboard: false });
       layer.on('dragend', function () {
         var p = layer.getLatLng();
         item.latlng = [p.lat, p.lng];
         commit();
+        if (item.showKm) rerender(item.id);
         if (item.id === selectedId) renderInspector();
       });
     } else if (type.kind === 'rect') {
@@ -170,9 +171,10 @@
       layer = L.polygon(item.latlngs, pathStyle(item, selected));
     }
 
-    if (item.label && item.showLabel !== false) {
+    var text = labelText(item);
+    if (text) {
       var isPoint = type.kind === 'point';
-      layer.bindTooltip(esc(item.label), {
+      layer.bindTooltip(esc(text), {
         permanent: true,
         direction: isPoint ? 'right' : 'center',
         offset: isPoint ? [(type.size || 26) / 2, 0] : [0, 0],
@@ -188,6 +190,28 @@
     });
 
     return layer;
+  }
+
+  // The map label: the item's label, plus its km on the chosen course if asked for.
+  function labelText(item) {
+    var label = item.showLabel !== false ? (item.label || '') : '';
+    if (!item.showKm) return label;
+    var d = courseDistance(item);
+    if (!d) return label;
+    var km = d.kms.map(function (m) { return (m / 1000).toFixed(1); }).join(' / ') + ' km';
+    return label ? label + ' (' + km + ')' : km;
+  }
+
+  // Distances along the item's chosen course, or the first course it sits on.
+  function courseDistance(item) {
+    var all = SMC.reports.distancesFor(item, state.items);
+    if (!all.length) return null;
+    for (var i = 0; i < all.length; i++) if (all[i].course.id === item.courseRef) return all[i];
+    return all[0];
+  }
+
+  function refreshKmLabels() {
+    state.items.forEach(function (i) { if (i.showKm) rerender(i.id); });
   }
 
   function addLayer(item) {
@@ -236,6 +260,7 @@
         var ll = kind === 'line' ? layer.getLatLngs() : layer.getLatLngs()[0];
         item.latlngs = ll.map(function (p) { return [p.lat, p.lng]; });
         commit();
+        if (item.type === 'course-line') refreshKmLabels();
         renderInspector();
       });
     }
@@ -373,6 +398,7 @@
     selectedId = null;
     removeLayer(id);
     state.items = state.items.filter(function (i) { return i.id !== id; });
+    refreshKmLabels();
     commit();
     renderLayerbar();
     renderInspector();
@@ -563,12 +589,13 @@
       html += '<p class="muted small">Drag the shape to move it. Use [ and ] to rotate in 15° steps.</p>';
     }
 
-    if (type.kind !== 'point') {
-      html += field('Colour', '<div class="colour"><input id="f-color" type="color" value="' + itemColor(item) +
-        '"><button id="f-color-reset" class="link">Reset to default</button></div>');
-    }
+    html += field('Colour', '<div class="colour"><input id="f-color" type="color" value="' + itemColor(item) +
+      '"><button id="f-color-reset" class="link">Reset to default</button></div>');
+
+    if (type.category === 'aid' && type.kind === 'point') html += aidDetailsHtml(item, type);
 
     html += '<div class="facts">' + factsHtml(item) + '</div>';
+    html += courseHtml(item);
 
     if ((type.kind === 'line' || type.kind === 'area') && item.latlngs.length > MAX_EDITABLE_VERTICES) {
       html += '<p class="muted small">This shape has ' + item.latlngs.length +
@@ -585,6 +612,46 @@
 
     body.innerHTML = html;
     bindInspector(item);
+  }
+
+  function aidDetailsHtml(item, type) {
+    var html = '<div class="row">' +
+      field('Lead / contact', '<input id="f-lead" value="' + esc(item.lead || '') + '" placeholder="Name, mobile">') +
+      field('Cut-off', '<input id="f-cutoff" value="' + esc(item.cutoff || '') + '" placeholder="e.g. 11:30 am">') +
+      '</div>';
+    if (type.aidDetails) {
+      var have = item.services || [];
+      html += '<div class="field"><span>Services</span><div class="services">' + SMC.AID_SERVICES.map(function (sv) {
+        return '<label class="check"><input type="checkbox" data-service="' + esc(sv) + '"' +
+          (have.indexOf(sv) !== -1 ? ' checked' : '') + '> ' + esc(sv) + '</label>';
+      }).join('') + '</div></div>';
+    }
+    return html;
+  }
+
+  // Where this item sits along each course, with the option to show it in the label.
+  function courseHtml(item) {
+    var kind = TYPES[item.type].kind;
+    if (kind !== 'point' && kind !== 'rect') return '';
+    var all = SMC.reports.distancesFor(item, state.items);
+    if (!all.length) {
+      var hasCourse = state.items.some(function (i) { return i.type === 'course-line'; });
+      return hasCourse ? '<p class="muted small">Not on a course (more than ' + SMC.ON_COURSE_METRES + ' m away).</p>' : '';
+    }
+    var html = '<div class="pp-heading">On course</div><div class="facts on-course">' + all.map(function (d) {
+      return '<div><span class="muted">' + esc(d.courseName) + '</span><span>' +
+        d.kms.map(function (m) { return (m / 1000).toFixed(1); }).join(' / ') + ' km</span></div>';
+    }).join('') + '</div>';
+    html += '<label class="check"><input id="f-showkm" type="checkbox"' + (item.showKm ? ' checked' : '') +
+      '> Show km on the map label</label>';
+    if (all.length > 1) {
+      var ref = courseDistance(item);
+      html += field('Km label uses', '<select id="f-courseref">' + all.map(function (d) {
+        return '<option value="' + d.course.id + '"' + (d.course.id === ref.course.id ? ' selected' : '') + '>' +
+          esc(d.courseName) + '</option>';
+      }).join('') + '</select>');
+    }
+    return html;
   }
 
   function field(label, control) {
@@ -624,6 +691,7 @@
     var on = function (id, ev, fn) { var el = $(id); if (el) el.addEventListener(ev, fn); };
 
     on('f-label', 'input', function (e) { item.label = e.target.value; rerender(item.id); });
+    if (item.type === 'course-line') on('f-label', 'change', refreshKmLabels);
     on('f-label', 'change', commit);
     on('f-showlabel', 'change', function (e) { item.showLabel = e.target.checked; rerender(item.id); commit(); });
     on('f-type', 'change', function (e) {
@@ -631,6 +699,7 @@
       item.type = t.id;
       if (t.kind === 'rect') { item.width = t.width; item.length = t.length; }
       rerender(item.id);
+      refreshKmLabels();
       commit();
       renderLayerbar();
       renderInspector();
@@ -671,6 +740,20 @@
       renderInspector();
     });
 
+    on('f-lead', 'change', function (e) { item.lead = e.target.value.trim(); commit(); });
+    on('f-cutoff', 'change', function (e) { item.cutoff = e.target.value.trim(); commit(); });
+    var services = document.querySelectorAll('#inspector [data-service]');
+    Array.prototype.forEach.call(services, function (cb) {
+      cb.addEventListener('change', function () {
+        item.services = Array.prototype.filter.call(services, function (c) { return c.checked; })
+          .map(function (c) { return c.getAttribute('data-service'); });
+        commit();
+      });
+    });
+
+    on('f-showkm', 'change', function (e) { item.showKm = e.target.checked; rerender(item.id); commit(); });
+    on('f-courseref', 'change', function (e) { item.courseRef = e.target.value; rerender(item.id); commit(); });
+
     on('f-duplicate', 'click', duplicateSelected);
     on('f-delete', 'click', deleteSelected);
   }
@@ -685,7 +768,7 @@
       html += '<div class="steps"><div class="pp-heading">Getting started</div><ol>' +
         '<li>Search for your venue at the top.</li>' +
         '<li>Choose imagery. Vicmap and NSW Imagery are sharpest in their states.</li>' +
-        '<li>Import your course GPX from the File menu.</li>' +
+        '<li>Import your course GPX, or a whole Google My Maps map, from the File menu.</li>' +
         '<li>Lay out marquees, toilets, aid stations and safety points.</li>' +
         '<li>Open Print layout to make the permit map.</li></ol></div>';
       return html;
@@ -917,6 +1000,140 @@
     reader.readAsText(file);
   }
 
+  // ------------------------------------------------ Google My Maps / KML
+
+  var pendingImport = null;
+
+  function openImportDialog() {
+    pendingImport = null;
+    $('import-step1').hidden = false;
+    $('import-step2').hidden = true;
+    $('import-go').hidden = true;
+    $('import-error').textContent = '';
+    $('import-dialog').showModal();
+    $('import-url').focus();
+  }
+
+  function importError(err) {
+    $('import-error').textContent = err.message || String(err);
+  }
+
+  function loadImportText(promise, sourceLabel) {
+    $('import-error').textContent = 'Loading…';
+    promise.then(function (text) {
+      var parsed = SMC.kml.parse(text);
+      if (!parsed.folders.length) throw new Error('That map has nothing in it to import.');
+      pendingImport = parsed;
+      showImportFolders(parsed, sourceLabel);
+    }).catch(importError);
+  }
+
+  function showImportFolders(parsed, sourceLabel) {
+    var total = 0;
+    var html = parsed.folders.map(function (f, idx) {
+      total += f.features.length;
+      var counts = {};
+      f.features.forEach(function (ft) { counts[ft.type] = (counts[ft.type] || 0) + 1; });
+      var summary = Object.keys(counts).map(function (t) {
+        return counts[t] + ' x ' + TYPES[t].name.toLowerCase();
+      }).join(', ');
+      // Folders marked old are left unticked so superseded courses do not come across.
+      var old = /\bold\b|archive|unused/i.test(f.name);
+      return '<div class="imp-folder"><label class="check"><input type="checkbox" data-folder="' + idx + '"' +
+        (old ? '' : ' checked') + '> <b>' + esc(f.name) + '</b></label>' +
+        '<div class="muted small">' + esc(summary) + '</div>' +
+        '<label class="check small"><input type="checkbox" data-labels="' + idx + '" checked> Show names on map</label></div>';
+    }).join('');
+    $('import-summary').textContent = (parsed.name ? '"' + parsed.name + '"' : sourceLabel) + ': ' + total +
+      ' items in ' + parsed.folders.length + ' folders. Untick anything you do not want.';
+    $('import-folders').innerHTML = html;
+    $('import-error').textContent = '';
+    $('import-step1').hidden = true;
+    $('import-step2').hidden = false;
+    $('import-go').hidden = false;
+  }
+
+  function runImport() {
+    var parsed = pendingImport;
+    if (!parsed) return;
+    var created = [];
+    parsed.folders.forEach(function (f, idx) {
+      if (!document.querySelector('[data-folder="' + idx + '"]').checked) return;
+      var showLabels = document.querySelector('[data-labels="' + idx + '"]').checked;
+      f.features.forEach(function (ft) {
+        var t = TYPES[ft.type];
+        var item = { id: newId(), type: t.id, label: ft.name || '', notes: ft.notes || '', showLabel: showLabels };
+        if (ft.kind === 'point') item.latlng = ft.latlng;
+        else item.latlngs = ft.kind === 'line' ? simplify(ft.latlngs, 2) : ft.latlngs;
+        // Keep the My Maps colour for lines and areas (it often tells courses apart),
+        // and for points we could not match to a symbol.
+        if (ft.color && (ft.kind !== 'point' || t.id === 'pin')) item.color = ft.color;
+        state.items.push(item);
+        addLayer(item);
+        created.push(item);
+      });
+    });
+    $('import-dialog').close();
+    pendingImport = null;
+    if (!created.length) return;
+    if (!state.meta.name && parsed.name) { state.meta.name = parsed.name; renderTitle(); }
+    created.forEach(function (i) { state.hidden[TYPES[i.type].category] = false; });
+    applyLayerVisibility();
+    refreshKmLabels();
+    commit();
+    renderLayerbar();
+    renderInspector();
+    var b = L.latLngBounds([]);
+    created.forEach(function (i) {
+      var l = layers[i.id];
+      b.extend(l.getBounds ? l.getBounds() : l.getLatLng());
+    });
+    if (b.isValid()) map.fitBounds(b, { padding: [40, 40] });
+    status('Imported ' + created.length + ' items. Click any item to check its type and details.');
+    setTimeout(function () { if (!placingType) status(''); }, 5000);
+  }
+
+  // -------------------------------------------------------------- lists
+
+  var listsTab = 'equipment';
+
+  function openLists() {
+    renderLists();
+    $('lists-dialog').showModal();
+  }
+
+  function renderLists() {
+    var tabs = document.querySelectorAll('#lists-dialog .tab');
+    Array.prototype.forEach.call(tabs, function (t) {
+      t.classList.toggle('active', t.getAttribute('data-tab') === listsTab);
+    });
+    if (listsTab === 'equipment') {
+      $('lists-hint').textContent = 'Counted from the map. Layers you have switched off are not included.';
+      $('lists-body').innerHTML = SMC.reports.equipmentHtml(SMC.reports.equipment(state.items, state.hidden));
+    } else {
+      $('lists-hint').textContent = 'Aid stations, marshals, safety and course points within ' + SMC.ON_COURSE_METRES +
+        ' m of each course, in km order. Loop courses list a point once per pass.';
+      $('lists-body').innerHTML = SMC.reports.coursePointsHtml(SMC.reports.coursePoints(state.items));
+    }
+  }
+
+  function listsTitle() {
+    return (state.meta.name || 'Site map') + (listsTab === 'equipment' ? ' equipment list' : ' course points');
+  }
+
+  function downloadListCsv() {
+    var csv = listsTab === 'equipment'
+      ? SMC.reports.equipmentCsv(SMC.reports.equipment(state.items, state.hidden))
+      : SMC.reports.coursePointsCsv(SMC.reports.coursePoints(state.items));
+    download(slug(listsTitle()) + '.csv', csv, 'text/csv');
+  }
+
+  function printList() {
+    var sub = [state.meta.venue, state.meta.date ? formatDate(state.meta.date) : '', state.meta.revision]
+      .filter(Boolean).join(' · ');
+    SMC.reports.printHtml(listsTitle(), sub, $('lists-body').innerHTML);
+  }
+
   // ------------------------------------------------------------ search
 
   function search(q) {
@@ -1125,6 +1342,7 @@
       if (action === 'open') $('open-input').click();
       if (action === 'save') saveFile();
       if (action === 'gpx') $('gpx-input').click();
+      if (action === 'mymaps') openImportDialog();
       if (action === 'geojson') exportGeoJSON();
     });
     $('open-input').addEventListener('change', function (e) {
@@ -1134,6 +1352,31 @@
     $('gpx-input').addEventListener('change', function (e) {
       if (e.target.files[0]) importGpx(e.target.files[0]);
       e.target.value = '';
+    });
+
+    $('import-form').addEventListener('submit', function (e) {
+      e.preventDefault();
+      var url = $('import-url').value.trim();
+      loadImportText(SMC.kml.fetchMyMaps(url), 'Google My Maps');
+    });
+    $('import-file-btn').addEventListener('click', function () { $('kml-input').click(); });
+    $('kml-input').addEventListener('change', function (e) {
+      var f = e.target.files[0];
+      e.target.value = '';
+      if (!f) return;
+      if (!$('import-dialog').open) openImportDialog();
+      loadImportText(SMC.kml.readFile(f), f.name);
+    });
+    $('import-cancel').addEventListener('click', function () { $('import-dialog').close(); });
+    $('import-go').addEventListener('click', runImport);
+
+    $('lists-btn').addEventListener('click', openLists);
+    $('lists-close').addEventListener('click', function () { $('lists-dialog').close(); });
+    $('lists-csv').addEventListener('click', downloadListCsv);
+    $('lists-print').addEventListener('click', printList);
+    document.querySelector('#lists-dialog .tabs').addEventListener('click', function (e) {
+      var tab = e.target.getAttribute('data-tab');
+      if (tab) { listsTab = tab; renderLists(); }
     });
 
     $('print-btn').addEventListener('click', enterPrint);
@@ -1152,7 +1395,7 @@
     var mod = e.ctrlKey || e.metaKey;
 
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveFile(); return; }
-    if (typing || printMode) return;
+    if (typing || printMode || document.querySelector('dialog[open]')) return;
 
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }

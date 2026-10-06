@@ -31,10 +31,12 @@
         <button data-action="open">Open map file…</button>
         <button data-action="save">Save map file</button>
         <hr>
+        <button data-action="mymaps">Import from Google My Maps…</button>
         <button data-action="gpx">Import course GPX…</button>
         <button data-action="geojson">Export GeoJSON</button>
       </div>
     </div>
+    <button id="lists-btn" title="Equipment list and course points">Lists</button>
     <button id="print-btn" class="primary">Print layout</button>
   </header>
 
@@ -121,6 +123,53 @@
     </form>
   </dialog>
 
+  <!-- Google My Maps / KML import dialog -->
+  <dialog id="import-dialog">
+    <div class="dlg">
+      <h2>Import from Google My Maps</h2>
+      <div id="import-step1">
+        <p class="muted">Paste the link to a My Maps map. The map needs to be shared as
+          "Anyone with this link can view".</p>
+        <form id="import-form" class="import-row">
+          <input id="import-url" type="url" placeholder="https://www.google.com/maps/d/…?mid=…" autocomplete="off">
+          <button class="primary" type="submit">Load map</button>
+        </form>
+        <p class="muted small">Map not shared? In My Maps, open the three-dot menu, choose
+          <b>Export to KML/KMZ</b>, then <button type="button" class="link" id="import-file-btn">choose the file</button>.</p>
+        <p id="import-error" class="error"></p>
+      </div>
+      <div id="import-step2" hidden>
+        <p class="muted" id="import-summary"></p>
+        <div id="import-folders"></div>
+        <p class="muted small">Items are matched to the closest type by their name. You can change any item's type
+          afterwards by clicking it.</p>
+      </div>
+      <div class="dialog-actions">
+        <button type="button" id="import-cancel">Cancel</button>
+        <button type="button" id="import-go" class="primary" hidden>Import</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Lists dialog -->
+  <dialog id="lists-dialog" class="wide">
+    <div class="dlg">
+      <div class="tabs">
+        <button type="button" data-tab="equipment" class="tab active">Equipment list</button>
+        <button type="button" data-tab="course" class="tab">Course points</button>
+      </div>
+      <p class="muted small" id="lists-hint"></p>
+      <div id="lists-body"></div>
+      <div class="dialog-actions">
+        <button type="button" id="lists-csv">Download spreadsheet (CSV)</button>
+        <button type="button" id="lists-print">Print</button>
+        <span class="spacer"></span>
+        <button type="button" id="lists-close" class="primary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <input type="file" id="kml-input" accept=".kml,.kmz" hidden>
   <input type="file" id="open-input" accept=".json,.sitemap.json,application/json" hidden>
   <input type="file" id="gpx-input" accept=".gpx" hidden>
 
@@ -128,6 +177,8 @@
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.js"></script>
   <script src="js/catalogue.js"></script>
   <script src="js/geo.js"></script>
+  <script src="js/kml.js"></script>
+  <script src="js/reports.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

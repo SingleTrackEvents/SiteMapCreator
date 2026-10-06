@@ -2,7 +2,7 @@
 
 Draw event villages, aid stations and safety infrastructure over satellite imagery, then print a clean site map for permits and council.
 
-Built for the SingleTrack Events ops team. This is the Stage 1 prototype: one person edits a map at a time, and maps are saved as files you can share through Drive or email.
+Built for the SingleTrack Events ops team. This is a prototype (Stages 1 and 2): one person edits a map at a time, and maps are saved as files you can share through Drive or email.
 
 ## Getting started
 
@@ -22,7 +22,7 @@ Your work is kept in that browser on that computer, so use **File, Save map file
 
 1. **Find the venue.** Type a place in the search box, for example "Pioneer Park Bright".
 2. **Pick your imagery.** Vicmap Aerial is the sharpest in Victoria and NSW Imagery is the sharpest in NSW. Esri World Imagery covers everywhere else. Tick **Roads** to add road names over the top.
-3. **Bring in the course.** File, then Import course GPX. Each track becomes a course line with its length shown.
+3. **Bring in the course.** File, then Import course GPX. Each track becomes a course line with its length shown. Or bring in a whole Google My Maps map (see below).
 4. **Lay out the site.** Choose an item from the library on the left, then click the map.
    - Marquees, the stage, containers, toilet blocks and food vans are drawn **to real size**. Set width, length and rotation in the panel on the right.
    - Symbols (aid stations, first aid, toilets, marshals and so on) drop where you click. Hold **Shift** to place several in a row.
@@ -32,6 +32,34 @@ Your work is kept in that browser on that computer, so use **File, Save map file
 7. **Print.** Click **Print layout**, choose A3 or A4 and the orientation, frame the map, then **Print / Save as PDF**. In the print dialog choose "Save as PDF" and make sure margins are set to "None" if asked.
 
 Layers you switch off at the bottom are left off the print, so you can make a council version and a volunteer version from the same map.
+
+## Importing from Google My Maps
+
+Already have the event in Google My Maps? Bring the lot across in one go.
+
+1. In My Maps, click **Share** and turn on **Anyone with this link can view**.
+2. Copy the link from your browser's address bar (it contains `mid=`).
+3. Here, choose **File, Import from Google My Maps**, paste the link and click **Load map**.
+4. Untick any folders you don't want (folders with "old" in the name start unticked), then click **Import**.
+
+Each pin, line and shape is matched to the closest item type by its name, for example "Doongalla Aid Station" becomes an aid station and "Marshal #3" becomes a marshal point. Courses keep their My Maps colours, and descriptions come across as notes. Anything that can't be matched becomes a plain map pin, and you can change its type by clicking it.
+
+Prefer not to share the map? In My Maps use the three-dot menu, **Export to KML/KMZ**, and choose that file in the import window instead.
+
+## Course distances and aid stations
+
+- Any point within 100 m of a course line shows how far along the course it is, for every course it sits on. Loop courses show each pass, for example "17.9 / 27.1 km".
+- Tick **Show km on the map label** to print the distance next to the name.
+- Aid stations and water stations have a lead contact, a cut-off time and a checklist of services (water, food, medical, drop bags and so on). Marshals and other aid points have a lead and cut-off.
+
+## Lists
+
+Click **Lists** at the top for:
+
+- **Equipment list:** a count of everything on the map (marquees by size, toilets, metres of fencing and so on). Layers you've switched off are left out.
+- **Course points:** for each course, every aid station, marshal, timing point and safety point in km order, with leads, cut-offs and services.
+
+Both can be printed or downloaded as a spreadsheet (CSV).
 
 ## Saving your work
 
@@ -67,14 +95,16 @@ The printed map includes the right attribution automatically.
 index.html        page structure
 css/app.css       styles, including the print layout
 js/catalogue.js   item library (types, colours, sizes) and imagery sources
-js/geo.js         distance, area and to-scale shape helpers
+js/geo.js         distance, area, to-scale shape and along-course helpers
+js/kml.js         Google My Maps and KML/KMZ import
+js/reports.js     equipment list and course points
 js/app.js         the app itself
 ```
 
 To add a new item to the library, add a line to `SMC.TYPES` in `js/catalogue.js`.
 
-## What's next (Stage 2 ideas)
+## What's next
 
-- Aid stations snapped to the course with automatic km distances
-- An equipment list generated from the map (marquees, toilets, metres of fencing)
 - Venue templates to start next year's map from this year's
+- One-page aid station sheets with a zoomed map and access directions
+- Shared online maps so the team can open the same map without passing files around
