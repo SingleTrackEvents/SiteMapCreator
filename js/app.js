@@ -29,6 +29,9 @@
   var history = [];
   var historyIndex = -1;
   var printMode = false;
+  // True when the page was opened from a share link: nothing can be changed
+  // and the viewer's own saved map in this browser is left alone.
+  var viewMode = false;
 
   function defaultMeta() {
     return {
@@ -155,7 +158,7 @@
     var layer;
 
     if (type.kind === 'point') {
-      layer = L.marker(item.latlng, { icon: pointIcon(type, selected, itemColor(item)), draggable: !printMode, keyboard: false });
+      layer = L.marker(item.latlng, { icon: pointIcon(type, selected, itemColor(item)), draggable: !printMode && !viewMode, keyboard: false });
       layer.on('dragend', function () {
         var p = layer.getLatLng();
         item.latlng = [p.lat, p.lng];
@@ -218,7 +221,7 @@
     var layer = buildLayer(item);
     layers[item.id] = layer;
     groups[TYPES[item.type].category].addLayer(layer);
-    if (item.id === selectedId && !printMode) enableEditing(item, layer);
+    if (item.id === selectedId && !printMode && !viewMode) enableEditing(item, layer);
   }
 
   function removeLayer(id) {
@@ -563,6 +566,7 @@
   function renderInspector() {
     var body = $('inspector-body');
     var item = findItem(selectedId);
+    if (viewMode) { body.innerHTML = item ? viewItemHtml(item) : viewOverviewHtml(); return; }
     if (!item) { body.innerHTML = overviewHtml(); return; }
 
     var type = TYPES[item.type];
@@ -1266,9 +1270,116 @@
     map.setView(center, zoom, { animate: false });
   }
 
+  // ------------------------------------------------------- share links
+
+  function openShareDialog() {
+    if (!SMC.share.supported()) {
+      alert('This browser is too old to make share links. Please use an up-to-date Chrome, Edge, Safari or Firefox.');
+      return;
+    }
+    deselect();
+    $('share-link').value = 'Making link…';
+    $('share-note').textContent = '';
+    $('share-copy').textContent = 'Copy link';
+    $('share-dialog').showModal();
+    SMC.share.linkFor(buildDocument()).then(function (link) {
+      $('share-link').value = link;
+      var n = link.length;
+      $('share-note').textContent = 'Link length: ' + n.toLocaleString() + ' characters. ' +
+        (n > 2000 ? 'Fine for email, Slack, WhatsApp, Teams and Google Docs, but too long for a text message.'
+          : 'Short enough to send anywhere, including a text message.');
+    }).catch(function () {
+      $('share-link').value = '';
+      $('share-note').textContent = 'Sorry, the link could not be made.';
+    });
+  }
+
+  function copyShareLink() {
+    var box = $('share-link');
+    var done = function () { $('share-copy').textContent = 'Copied'; };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(box.value).then(done, function () { box.select(); document.execCommand('copy'); done(); });
+    } else {
+      box.select();
+      document.execCommand('copy');
+      done();
+    }
+  }
+
+  function enterViewMode(doc) {
+    viewMode = true;
+    document.body.classList.add('view-mode');
+    $('print-back').textContent = 'Back to map';
+    $('print-hint').textContent = 'Frame the map, then click Print / Save as PDF and choose "Save as PDF" as the printer.';
+    loadDocument(doc, true);
+    // The sender framed the map on their screen; on a phone show everything instead.
+    if (window.innerWidth < 900) fitAll();
+  }
+
+  function editCopy() {
+    if (!confirm('Open an editable copy of this map?\n\nIt replaces the map you were last working on in this ' +
+      'browser. If you need that one, open it from a saved map file afterwards.')) return;
+    var doc = buildDocument();
+    viewMode = false;
+    document.body.classList.remove('view-mode');
+    $('print-back').textContent = 'Back to editing';
+    $('print-hint').textContent = 'Pan and zoom the map to frame it. Layers switched off are left off the print.';
+    // `history` is the undo stack in this file, so reach the browser's own explicitly.
+    window.history.replaceState(null, '', location.pathname + location.search);
+    loadDocument(doc, false);
+    autosave();
+    status('This is now your own copy. Changes are saved in this browser.');
+    setTimeout(function () { if (!placingType) status(''); }, 4000);
+  }
+
+  function viewOverviewHtml() {
+    var m = state.meta;
+    var html = '<div class="insp-type">' + esc(m.name || 'Site map') + '</div>';
+    var sub = [m.subtitle, m.venue, m.date ? formatDate(m.date) : ''].filter(Boolean);
+    if (sub.length) html += '<p class="muted small">' + sub.map(esc).join('<br>') + '</p>';
+    html += '<p class="small">Click anything on the map for details. Use the layers along the bottom to show or hide groups.</p>';
+    if (m.contact) html += '<div class="facts"><div><span class="muted">Contact on the day</span><span>' + esc(m.contact) + '</span></div></div>';
+    if (m.notes) html += '<div class="pp-heading">Notes</div><p class="small pre">' + esc(m.notes) + '</p>';
+    html += '<div class="pp-heading" style="margin-top:14px">Legend</div><div class="view-legend">' + legendHtml() + '</div>';
+    return html;
+  }
+
+  function viewItemHtml(item) {
+    var t = TYPES[item.type];
+    var html = '<div class="insp-head">' + swatch(t, itemColor(item)) + '<div><div class="insp-type">' +
+      esc(item.label || t.name) + '</div><div class="muted">' + esc(item.label ? t.name : categoryName(t.category)) +
+      '</div></div></div>';
+    var rows = [];
+    if (t.kind === 'rect') rows.push(['Size', item.width + ' x ' + item.length + ' m']);
+    if (item.lead) rows.push(['Lead / contact', esc(item.lead)]);
+    if (item.cutoff) rows.push(['Cut-off', esc(item.cutoff)]);
+    if (item.services && item.services.length) rows.push(['Services', esc(item.services.join(', '))]);
+    var facts = rows.map(function (r) {
+      return '<div><span class="muted">' + r[0] + '</span><span>' + r[1] + '</span></div>';
+    }).join('');
+    html += '<div class="facts">' + facts + factsHtml(item) + '</div>';
+    if (t.kind === 'point' || t.kind === 'rect') {
+      var all = SMC.reports.distancesFor(item, state.items);
+      if (all.length) {
+        html += '<div class="pp-heading">On course</div><div class="facts on-course">' + all.map(function (d) {
+          return '<div><span class="muted">' + esc(d.courseName) + '</span><span>' +
+            d.kms.map(function (km) { return (km / 1000).toFixed(1); }).join(' / ') + ' km</span></div>';
+        }).join('') + '</div>';
+      }
+    }
+    if (item.notes) html += '<div class="pp-heading">Notes</div><p class="small pre">' + esc(item.notes) + '</p>';
+    var p = item.latlng || item.center || (item.latlngs && geo.centroid(item.latlngs));
+    if (p && t.kind !== 'line') {
+      html += '<a class="btn wide" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query=' +
+        p[0].toFixed(6) + ',' + p[1].toFixed(6) + '">Open in Google Maps</a>';
+    }
+    return html;
+  }
+
   // ---------------------------------------------------------- autosave
 
   function autosave() {
+    if (viewMode) return;
     try { localStorage.setItem(AUTOSAVE_KEY, JSON.stringify(buildDocument())); } catch (e) { /* storage unavailable */ }
   }
 
@@ -1323,7 +1434,7 @@
       if (e.target.id === 'o-fit') fitAll();
     });
 
-    $('event-title').addEventListener('click', openEventDialog);
+    $('event-title').addEventListener('click', function () { if (!viewMode) openEventDialog(); });
     $('event-dialog').addEventListener('close', onEventDialogClose);
 
     $('undo-btn').addEventListener('click', undo);
@@ -1379,6 +1490,19 @@
       if (tab) { listsTab = tab; renderLists(); }
     });
 
+    $('share-btn').addEventListener('click', openShareDialog);
+    $('share-copy').addEventListener('click', copyShareLink);
+    $('share-close').addEventListener('click', function () { $('share-dialog').close(); });
+    $('share-open').addEventListener('click', function () {
+      if ($('share-link').value.indexOf('http') === 0) window.open($('share-link').value, '_blank');
+    });
+    $('edit-copy-btn').addEventListener('click', editCopy);
+    $('pdf-btn').addEventListener('click', enterPrint);
+    // Pasting a different share link into this tab should show that map.
+    window.addEventListener('hashchange', function () {
+      if (SMC.share.tokenFromLocation()) location.reload();
+    });
+
     $('print-btn').addEventListener('click', enterPrint);
     $('print-back').addEventListener('click', exitPrint);
     $('print-go').addEventListener('click', function () { window.print(); });
@@ -1396,6 +1520,7 @@
 
     if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); saveFile(); return; }
     if (typing || printMode || document.querySelector('dialog[open]')) return;
+    if (viewMode) { if (e.key === 'Escape') deselect(); return; }
 
     if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); return; }
     if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); return; }
@@ -1413,6 +1538,27 @@
     bindUi();
     initMap();
     renderLibrary();
+    var token = SMC.share.tokenFromLocation();
+    if (token) {
+      if (!SMC.share.supported()) {
+        alert('This browser is too old to open shared maps. Please use an up-to-date Chrome, Edge, Safari or Firefox.');
+      } else {
+        // Hold the view-only layout from the start so editing tools never flash up.
+        viewMode = true;
+        document.body.classList.add('view-mode');
+        SMC.share.decode(token).then(enterViewMode).catch(function () {
+          viewMode = false;
+          document.body.classList.remove('view-mode');
+          alert('This share link looks incomplete. Ask for the link to be sent again, and make sure all of it was copied.');
+          startEditing();
+        });
+        return;
+      }
+    }
+    startEditing();
+  }
+
+  function startEditing() {
     if (!loadAutosave()) {
       renderAll();
       renderInspector();

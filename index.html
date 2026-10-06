@@ -6,7 +6,7 @@
   <title>Site Map Creator</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css">
-  <link rel="stylesheet" href="css/app.css?v=2">
+  <link rel="stylesheet" href="css/app.css?v=3">
   <style id="page-size"></style>
 </head>
 <body>
@@ -14,7 +14,7 @@
   <header id="topbar">
     <div class="brand">Site Map Creator</div>
     <button id="event-title" class="event-title" title="Edit event details">Untitled event</button>
-    <form id="search-form" class="search">
+    <form id="search-form" class="search edit-only">
       <input id="search-input" type="search" placeholder="Find a venue, e.g. Bright VIC" autocomplete="off">
     </form>
     <select id="basemap-select" title="Imagery"></select>
@@ -22,9 +22,9 @@
       <input id="labels-toggle" type="checkbox"> Roads
     </label>
     <div class="spacer"></div>
-    <button id="undo-btn" title="Undo (Ctrl+Z)">Undo</button>
-    <button id="redo-btn" title="Redo (Ctrl+Shift+Z)">Redo</button>
-    <div class="menu">
+    <button id="undo-btn" class="edit-only" title="Undo (Ctrl+Z)">Undo</button>
+    <button id="redo-btn" class="edit-only" title="Redo (Ctrl+Shift+Z)">Redo</button>
+    <div class="menu edit-only">
       <button id="file-btn">File</button>
       <div class="menu-items" id="file-menu">
         <button data-action="new">New map</button>
@@ -37,7 +37,11 @@
       </div>
     </div>
     <button id="lists-btn" title="Equipment list and course points">Lists</button>
-    <button id="print-btn" class="primary">Print layout</button>
+    <button id="share-btn" class="edit-only" title="Get a view-only link to this map">Share</button>
+    <button id="print-btn" class="primary edit-only">Print layout</button>
+    <span class="view-badge view-only">View only</span>
+    <button id="edit-copy-btn" class="view-only" title="Open an editable copy of this map">Edit a copy</button>
+    <button id="pdf-btn" class="primary view-only">Download PDF</button>
   </header>
 
   <!-- Print toolbar (shown in print layout mode) -->
@@ -55,7 +59,7 @@
         <option value="portrait">Portrait</option>
       </select>
     </label>
-    <span class="hint">Pan and zoom the map to frame it. Layers switched off are left off the print.</span>
+    <span class="hint" id="print-hint">Pan and zoom the map to frame it. Layers switched off are left off the print.</span>
     <div class="spacer"></div>
     <button id="print-back">Back to editing</button>
     <button id="print-go" class="primary">Print / Save as PDF</button>
@@ -151,6 +155,25 @@
     </div>
   </dialog>
 
+  <!-- Share dialog -->
+  <dialog id="share-dialog">
+    <div class="dlg">
+      <h2>Share a view-only link</h2>
+      <p class="muted">Anyone with this link can see the map, switch layers on and off, click items for
+        details and download a PDF. They can't change your map.</p>
+      <textarea id="share-link" rows="4" readonly></textarea>
+      <p class="muted small" id="share-note"></p>
+      <p class="muted small">The whole map is packed inside the link, so it isn't stored anywhere online.
+        It's a snapshot: if you change the map, share a new link.</p>
+      <div class="dialog-actions">
+        <button type="button" id="share-open">Preview</button>
+        <span class="spacer"></span>
+        <button type="button" id="share-close">Close</button>
+        <button type="button" id="share-copy" class="primary">Copy link</button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- Lists dialog -->
   <dialog id="lists-dialog" class="wide">
     <div class="dlg">
@@ -175,10 +198,11 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.js"></script>
-  <script src="js/catalogue.js?v=2"></script>
-  <script src="js/geo.js?v=2"></script>
-  <script src="js/kml.js?v=2"></script>
-  <script src="js/reports.js?v=2"></script>
-  <script src="js/app.js?v=2"></script>
+  <script src="js/catalogue.js?v=3"></script>
+  <script src="js/geo.js?v=3"></script>
+  <script src="js/kml.js?v=3"></script>
+  <script src="js/reports.js?v=3"></script>
+  <script src="js/share.js?v=3"></script>
+  <script src="js/app.js?v=3"></script>
 </body>
 </html>

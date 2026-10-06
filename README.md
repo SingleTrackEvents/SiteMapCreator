@@ -61,6 +61,25 @@ Click **Lists** at the top for:
 
 Both can be printed or downloaded as a spreadsheet (CSV).
 
+## Sharing a finished plan
+
+Click **Share** at the top to get a view-only link, then click **Copy link** and paste it into an email, Slack, WhatsApp, Teams or a Google Doc.
+
+People who open the link can:
+
+- see the map on satellite imagery, on a computer or phone
+- switch layers on and off, and click anything for details (leads, cut-offs, services, km on each course, notes)
+- open any point in Google Maps for directions
+- view the lists, and click **Download PDF** to print or save the map
+
+They can't change your map. If they need to, **Edit a copy** turns it into their own editable map in their browser.
+
+Good to know:
+
+- The whole map is packed inside the link, so nothing is stored online. That's why the link is long (about 9,000 characters for a full event). It's fine for email and chat apps but too long for a text message.
+- A link is a snapshot. If you change the map, share a new link.
+- Anyone who has the link can see the map, so share it the way you'd share the PDF.
+
 ## Saving your work
 
 - Your current map is kept in the browser automatically, so a refresh will not lose it.

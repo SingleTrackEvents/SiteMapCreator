@@ -295,6 +295,36 @@ table.report .num { text-align: right; white-space: nowrap; }
 .services { display: grid; grid-template-columns: 1fr 1fr; gap: 4px 10px; font-size: 13px; }
 .on-course { margin-top: 4px; }
 
+/* ================= view-only mode (opened from a share link) ================= */
+body:not(.view-mode) .view-only { display: none !important; }
+body.view-mode .edit-only { display: none !important; }
+body.view-mode #library { display: none; }
+body.view-mode #workspace { grid-template-columns: 1fr 300px; }
+body.view-mode .event-title { cursor: default; }
+.view-badge {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: #2c3831;
+  color: #cfd8d2;
+  white-space: nowrap;
+}
+.view-legend { display: flex; flex-direction: column; gap: 5px; margin-top: 6px; font-size: 13px; }
+.pre { white-space: pre-wrap; line-height: 1.45; }
+a.btn {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 6px 12px;
+  margin-top: 12px;
+}
+a.btn:hover { border-color: #b9b5aa; }
+#share-link { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 11px; word-break: break-all; }
+
 /* ================= print layout mode ================= */
 body.print-mode #topbar,
 body.print-mode #library,
@@ -382,7 +412,11 @@ body.print-mode .leaflet-control-scale-line {
 
 /* ---------- small screens: keep it usable for checking a map ---------- */
 @media (max-width: 900px) {
-  #workspace { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  #workspace, body.view-mode #workspace { grid-template-columns: 1fr; grid-template-rows: 1fr auto; }
+  body.view-mode #topbar .brand, body.view-mode #edit-copy-btn, body.view-mode .view-badge { display: none !important; }
+  body.view-mode #layerbar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; font-size: 13px; }
+  body.view-mode #inspector { max-height: 30vh; padding: 10px 14px; }
+  body.view-mode #topbar { gap: 6px; padding: 6px 10px; }
   #library { display: none; }
   #inspector { max-height: 40vh; border-left: 0; border-top: 1px solid var(--line); }
   #topbar { flex-wrap: wrap; }
