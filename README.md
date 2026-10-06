@@ -6,7 +6,9 @@ Built for the SingleTrack Events ops team. This is the Stage 1 prototype: one pe
 
 ## Getting started
 
-No install and no code needed.
+**Online:** open https://singletrackevents.github.io/SiteMapCreator/ in Chrome or Edge. Nothing to install.
+
+**Offline copy:** no install and no code needed.
 
 1. Download the project as a zip file. On the GitHub page, click the green **Code** button, then **Download ZIP**.
 2. Unzip it (double-click the zip file on a Mac, or right-click and choose **Extract All** on Windows).
