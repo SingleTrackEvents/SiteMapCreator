@@ -103,6 +103,8 @@ js/app.js         the app itself
 
 To add a new item to the library, add a line to `SMC.TYPES` in `js/catalogue.js`.
 
+When you change any CSS or JS file, bump the `?v=` number on every file in `index.html`. Browsers keep copies of these files, and without the bump someone can end up with the new page and an old script, which breaks menus and buttons.
+
 ## What's next
 
 - Venue templates to start next year's map from this year's
