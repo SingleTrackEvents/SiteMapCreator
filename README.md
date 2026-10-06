@@ -6,15 +6,15 @@ Built for the SingleTrack Events ops team. This is the Stage 1 prototype: one pe
 
 ## Getting started
 
-No install needed. Run a small local web server from this folder and open it in Chrome or Edge:
+No install and no code needed.
 
-```
-npx http-server -p 8080
-```
+1. Download the project as a zip file. On the GitHub page, click the green **Code** button, then **Download ZIP**.
+2. Unzip it (double-click the zip file on a Mac, or right-click and choose **Extract All** on Windows).
+3. Open the unzipped folder and double-click **index.html**. It opens in your web browser and you're ready to go.
 
-Then open http://localhost:8080.
+Chrome or Edge work best. You'll need an internet connection for the imagery and venue search.
 
-You can also double-click `index.html`, but a local server is more reliable. Imagery, the icon library and venue search all need an internet connection.
+Your work is kept in that browser on that computer, so use **File, Save map file** to keep a copy you can share or open somewhere else.
 
 ## How it works
 
