@@ -13,6 +13,11 @@
   var AUTOSAVE_KEY = 'smc.autosave.v1';
   var PAPER_MM = { A3: [420, 297], A4: [297, 210] };
   var MAX_EDITABLE_VERTICES = 600;
+  var PANES = {
+    area: { name: 'smc-areas', z: 390 },
+    rect: { name: 'smc-rects', z: 400 },
+    line: { name: 'smc-lines', z: 410 }
+  };
 
   var state = {
     meta: defaultMeta(),
@@ -83,6 +88,13 @@
 
     SMC.CATEGORIES.forEach(function (c) {
       groups[c.id] = L.featureGroup().addTo(map);
+    });
+
+    // Fixed stacking, whatever order things were drawn or imported in:
+    // areas at the bottom, then to-scale shapes, then lines. Point symbols
+    // and labels already sit above all of these in Leaflet's own panes.
+    Object.keys(PANES).forEach(function (kind) {
+      map.createPane(PANES[kind].name).style.zIndex = PANES[kind].z;
     });
 
     map.pm.setGlobalOptions({ snappable: true, snapDistance: 12, allowSelfIntersection: true });
@@ -167,11 +179,11 @@
         if (item.id === selectedId) renderInspector();
       });
     } else if (type.kind === 'rect') {
-      layer = L.polygon(geo.rectCorners(item.center, item.width, item.length, item.rotation), pathStyle(item, selected));
+      layer = L.polygon(geo.rectCorners(item.center, item.width, item.length, item.rotation), inPane(pathStyle(item, selected), 'rect'));
     } else if (type.kind === 'line') {
-      layer = L.polyline(item.latlngs, pathStyle(item, selected));
+      layer = L.polyline(item.latlngs, inPane(pathStyle(item, selected), 'line'));
     } else {
-      layer = L.polygon(item.latlngs, pathStyle(item, selected));
+      layer = L.polygon(item.latlngs, inPane(pathStyle(item, selected), 'area'));
     }
 
     var text = labelText(item);
@@ -217,11 +229,26 @@
     state.items.forEach(function (i) { if (i.showKm) rerender(i.id); });
   }
 
+  function inPane(options, kind) {
+    options.pane = PANES[kind].name;
+    return options;
+  }
+
   function addLayer(item) {
     var layer = buildLayer(item);
     layers[item.id] = layer;
     groups[TYPES[item.type].category].addLayer(layer);
+    if (TYPES[item.type].kind === 'area') sortAreas();
     if (item.id === selectedId && !printMode && !viewMode) enableEditing(item, layer);
+  }
+
+  // Bigger areas go underneath smaller ones, so a car park drawn inside the
+  // event village stays visible and clickable.
+  function sortAreas() {
+    state.items
+      .filter(function (i) { return TYPES[i.type].kind === 'area' && layers[i.id] && layers[i.id]._map; })
+      .sort(function (a, b) { return geo.polygonArea(b.latlngs) - geo.polygonArea(a.latlngs); })
+      .forEach(function (i) { layers[i.id].bringToFront(); });
   }
 
   function removeLayer(id) {
@@ -275,6 +302,7 @@
       if (state.hidden[c.id]) { if (map.hasLayer(g)) map.removeLayer(g); }
       else if (!map.hasLayer(g)) map.addLayer(g);
     });
+    sortAreas();
   }
 
   // --------------------------------------------------------- selection
