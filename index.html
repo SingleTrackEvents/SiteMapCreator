@@ -6,7 +6,7 @@
   <title>Site Map Creator</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css">
-  <link rel="stylesheet" href="css/app.css?v=4">
+  <link rel="stylesheet" href="css/app.css?v=5">
   <style id="page-size"></style>
 </head>
 <body>
@@ -14,6 +14,7 @@
   <header id="topbar">
     <div class="brand">Site Map Creator</div>
     <button id="event-title" class="event-title" title="Edit event details">Untitled event</button>
+    <span id="cloud-status" class="cloud-status edit-only"></span>
     <form id="search-form" class="search edit-only">
       <input id="search-input" type="search" placeholder="Find a venue, e.g. Bright VIC" autocomplete="off">
     </form>
@@ -34,6 +35,18 @@
         <button data-action="mymaps">Import from Google My Maps…</button>
         <button data-action="gpx">Import course GPX…</button>
         <button data-action="geojson">Export GeoJSON</button>
+      </div>
+    </div>
+    <div class="menu edit-only">
+      <button id="cloud-btn" title="Save and open maps in the SingleTrack cloud">Cloud</button>
+      <div class="menu-items" id="cloud-menu">
+        <div class="menu-note" id="cloud-who">Not signed in</div>
+        <button data-cloud="signin" id="cloud-signin-item">Sign in…</button>
+        <button data-cloud="open">Open from cloud…</button>
+        <button data-cloud="save">Save to cloud</button>
+        <button data-cloud="saveas">Save to cloud as a new map</button>
+        <hr>
+        <button data-cloud="signout" id="cloud-signout-item">Sign out</button>
       </div>
     </div>
     <button id="lists-btn" title="Equipment list and course points">Lists</button>
@@ -159,17 +172,69 @@
   <dialog id="share-dialog">
     <div class="dlg">
       <h2>Share a view-only link</h2>
-      <p class="muted">Anyone with this link can see the map, switch layers on and off, click items for
+      <p class="muted">Anyone with the link can see the map, switch layers on and off, click items for
         details and download a PDF. They can't change your map.</p>
-      <textarea id="share-link" rows="4" readonly></textarea>
-      <p class="muted small" id="share-note"></p>
-      <p class="muted small">The whole map is packed inside the link, so it isn't stored anywhere online.
-        It's a snapshot: if you change the map, share a new link.</p>
+
+      <div id="share-short">
+        <div class="pp-heading">Short link</div>
+        <div id="share-short-signedout">
+          <p class="small">Sign in with your SingleTrack email to get a short link. It always shows the latest
+            version you've saved to the cloud.</p>
+          <button type="button" id="share-signin">Sign in</button>
+        </div>
+        <div id="share-short-signedin" hidden>
+          <div class="import-row">
+            <input id="share-short-link" readonly placeholder="Save to the cloud to get a short link">
+            <button type="button" id="share-short-copy" class="primary">Save and copy link</button>
+          </div>
+          <p class="muted small" id="share-short-note"></p>
+        </div>
+      </div>
+
+      <details id="share-long">
+        <summary>Long link instead (no sign-in needed)</summary>
+        <textarea id="share-link" rows="4" readonly></textarea>
+        <p class="muted small" id="share-note"></p>
+        <p class="muted small">The whole map is packed inside this link, so it isn't stored anywhere online.
+          It's a snapshot: if you change the map, share a new link.</p>
+        <div class="dialog-actions">
+          <button type="button" id="share-open">Preview</button>
+          <span class="spacer"></span>
+          <button type="button" id="share-copy">Copy long link</button>
+        </div>
+      </details>
+
       <div class="dialog-actions">
-        <button type="button" id="share-open">Preview</button>
+        <button type="button" id="share-close" class="primary">Close</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- Cloud sign-in dialog -->
+  <dialog id="signin-dialog">
+    <form class="dlg" id="signin-form">
+      <h2>Sign in to cloud maps</h2>
+      <p class="muted">For the SingleTrack team. Use your @singletrack.com.au email.</p>
+      <label class="field"><span>Email</span><input id="signin-email" type="email" autocomplete="email" placeholder="name@singletrack.com.au"></label>
+      <label class="field"><span>Password (if you have one)</span><input id="signin-password" type="password" autocomplete="current-password"></label>
+      <p id="signin-msg" class="small"></p>
+      <div class="dialog-actions">
+        <button type="button" id="signin-link">Email me a sign-in link</button>
         <span class="spacer"></span>
-        <button type="button" id="share-close">Close</button>
-        <button type="button" id="share-copy" class="primary">Copy link</button>
+        <button type="button" id="signin-cancel">Cancel</button>
+        <button type="submit" class="primary">Sign in</button>
+      </div>
+    </form>
+  </dialog>
+
+  <!-- Open from cloud dialog -->
+  <dialog id="cloud-dialog" class="wide">
+    <div class="dlg">
+      <h2>Open from cloud</h2>
+      <p class="muted small" id="cloud-hint">Maps the SingleTrack team has saved.</p>
+      <div id="cloud-list"></div>
+      <div class="dialog-actions">
+        <button type="button" id="cloud-close" class="primary">Close</button>
       </div>
     </div>
   </dialog>
@@ -198,11 +263,13 @@
 
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.js"></script>
-  <script src="js/catalogue.js?v=4"></script>
-  <script src="js/geo.js?v=4"></script>
-  <script src="js/kml.js?v=4"></script>
-  <script src="js/reports.js?v=4"></script>
-  <script src="js/share.js?v=4"></script>
-  <script src="js/app.js?v=4"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
+  <script src="js/catalogue.js?v=5"></script>
+  <script src="js/geo.js?v=5"></script>
+  <script src="js/kml.js?v=5"></script>
+  <script src="js/reports.js?v=5"></script>
+  <script src="js/share.js?v=5"></script>
+  <script src="js/cloud.js?v=5"></script>
+  <script src="js/app.js?v=5"></script>
 </body>
 </html>

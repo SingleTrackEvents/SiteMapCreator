@@ -23,8 +23,12 @@
     meta: defaultMeta(),
     items: [],
     view: { basemap: 'vic', labels: false },
-    hidden: {}
+    hidden: {},
+    // Set when this map is saved in the cloud: { id, slug, updatedAt }.
+    cloud: null
   };
+  // Snapshot of the map as last saved to or opened from the cloud.
+  var cloudSnapshot = null;
 
   var map, baseLayer, labelLayer;
   var groups = {};
@@ -477,6 +481,7 @@
     if (history.length > 150) history.shift();
     historyIndex = history.length - 1;
     updateUndoButtons();
+    renderCloudStatus();
     autosave();
   }
 
@@ -878,6 +883,7 @@
       meta: state.meta,
       view: { center: [c.lat, c.lng], zoom: map.getZoom(), basemap: state.view.basemap, labels: state.view.labels },
       hidden: state.hidden,
+      cloud: state.cloud,
       items: state.items
     };
   }
@@ -888,6 +894,8 @@
     state.meta = Object.assign(defaultMeta(), doc.meta || {});
     state.items = items;
     state.hidden = doc.hidden || {};
+    state.cloud = doc.cloud && doc.cloud.id ? doc.cloud : null;
+    cloudSnapshot = null;
     state.view.labels = !!(doc.view && doc.view.labels);
     setBasemap(doc.view && doc.view.basemap);
     selectedId = null;
@@ -1308,7 +1316,9 @@
     deselect();
     $('share-link').value = 'Making link…';
     $('share-note').textContent = '';
-    $('share-copy').textContent = 'Copy link';
+    $('share-copy').textContent = 'Copy long link';
+    renderShareShort();
+    $('share-long').open = !SMC.cloud.isStaff();
     $('share-dialog').showModal();
     SMC.share.linkFor(buildDocument()).then(function (link) {
       $('share-link').value = link;
@@ -1325,6 +1335,7 @@
   function copyShareLink() {
     var box = $('share-link');
     var done = function () { $('share-copy').textContent = 'Copied'; };
+    if (box.value.indexOf('http') !== 0) return;
     if (navigator.clipboard && navigator.clipboard.writeText) {
       navigator.clipboard.writeText(box.value).then(done, function () { box.select(); document.execCommand('copy'); done(); });
     } else {
@@ -1348,12 +1359,14 @@
     if (!confirm('Open an editable copy of this map?\n\nIt replaces the map you were last working on in this ' +
       'browser. If you need that one, open it from a saved map file afterwards.')) return;
     var doc = buildDocument();
+    // A copy is its own map: saving it must not overwrite the shared original.
+    doc.cloud = null;
     viewMode = false;
     document.body.classList.remove('view-mode');
     $('print-back').textContent = 'Back to editing';
     $('print-hint').textContent = 'Pan and zoom the map to frame it. Layers switched off are left off the print.';
     // `history` is the undo stack in this file, so reach the browser's own explicitly.
-    window.history.replaceState(null, '', location.pathname + location.search);
+    window.history.replaceState(null, '', location.pathname);
     loadDocument(doc, false);
     autosave();
     status('This is now your own copy. Changes are saved in this browser.');
@@ -1402,6 +1415,220 @@
         p[0].toFixed(6) + ',' + p[1].toFixed(6) + '">Open in Google Maps</a>';
     }
     return html;
+  }
+
+  // ------------------------------------------------------- cloud maps
+
+  function cloudReady() {
+    if (!SMC.cloud.available()) {
+      alert('Cloud maps are unavailable right now. Check your internet connection and reload the page.');
+      return false;
+    }
+    return true;
+  }
+
+  function cloudDirty() {
+    return !!state.cloud && cloudSnapshot !== null && snapshot() !== cloudSnapshot;
+  }
+
+  function timeAgo(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return '';
+    var mins = Math.round((Date.now() - d) / 60000);
+    if (mins < 1) return 'just now';
+    if (mins < 60) return mins + ' min ago';
+    var hrs = Math.round(mins / 60);
+    if (hrs < 24) return hrs + ' hr ago';
+    return d.toLocaleDateString('en-AU', { day: 'numeric', month: 'short', year: 'numeric' });
+  }
+
+  function renderCloudStatus() {
+    var el = $('cloud-status');
+    if (!el) return;
+    if (!state.cloud) { el.textContent = ''; el.title = ''; return; }
+    if (cloudSnapshot === null) {
+      el.textContent = 'Cloud map';
+      el.title = 'Linked to a map in the cloud. Use Cloud, Save to cloud to update it.';
+    } else if (cloudDirty()) {
+      el.textContent = 'Changes not saved to cloud';
+      el.title = 'Use Cloud, Save to cloud (or Share) to update the cloud copy and its short link.';
+    } else {
+      el.textContent = 'Saved to cloud';
+      el.title = state.cloud.updatedAt ? 'Last saved ' + timeAgo(state.cloud.updatedAt) : '';
+    }
+    el.classList.toggle('dirty', cloudDirty());
+  }
+
+  function renderCloudMenu(user) {
+    var staff = SMC.cloud.isStaff(user);
+    $('cloud-who').textContent = user ? (staff ? 'Signed in as ' + user.email : user.email + ' (not a SingleTrack email)')
+      : 'Not signed in';
+    $('cloud-signin-item').hidden = !!user;
+    $('cloud-signout-item').hidden = !user;
+    Array.prototype.forEach.call(document.querySelectorAll('[data-cloud="open"],[data-cloud="save"],[data-cloud="saveas"]'),
+      function (b) { b.disabled = !staff; });
+    if ($('share-dialog').open) renderShareShort();
+  }
+
+  function openSignIn(after) {
+    if (!cloudReady()) return;
+    signInAfter = after || null;
+    $('signin-msg').textContent = '';
+    $('signin-msg').className = 'small';
+    $('signin-password').value = '';
+    $('signin-dialog').showModal();
+    $('signin-email').focus();
+  }
+  var signInAfter = null;
+
+  function signInMessage(text, isError) {
+    $('signin-msg').textContent = text;
+    $('signin-msg').className = 'small' + (isError ? ' error' : '');
+  }
+
+  function doPasswordSignIn(e) {
+    e.preventDefault();
+    var email = $('signin-email').value, pw = $('signin-password').value;
+    if (!pw) { signInMessage('Enter your password, or click "Email me a sign-in link".', true); return; }
+    signInMessage('Signing in…');
+    try {
+      SMC.cloud.signInWithPassword(email, pw).then(function () {
+        $('signin-dialog').close();
+        var next = signInAfter; signInAfter = null;
+        if (next) next();
+      }).catch(function (err) { signInMessage(err.message, true); });
+    } catch (err) { signInMessage(err.message, true); }
+  }
+
+  function doLinkSignIn() {
+    signInMessage('Sending…');
+    try {
+      SMC.cloud.sendSignInLink($('signin-email').value).then(function () {
+        signInMessage('Check your email and click the sign-in link. It brings you back here, signed in. ' +
+          'Save your map to a file first if you have unsaved work in another tab.');
+      }).catch(function (err) { signInMessage(err.message, true); });
+    } catch (err) { signInMessage(err.message, true); }
+  }
+
+  // Saves the current map to the cloud (a new map when asNew or not yet saved).
+  function saveToCloud(asNew) {
+    if (!cloudReady()) return Promise.reject(new Error('unavailable'));
+    if (!SMC.cloud.isStaff()) {
+      return new Promise(function (resolve, reject) {
+        openSignIn(function () { saveToCloud(asNew).then(resolve, reject); });
+      });
+    }
+    var id = !asNew && state.cloud ? state.cloud.id : null;
+    var check = id ? SMC.cloud.remoteInfo(id) : Promise.resolve(null);
+    status('Saving to cloud…');
+    return check.then(function (remote) {
+      if (id && !remote) id = null; // deleted in the meantime: save as new
+      if (remote && state.cloud.updatedAt && new Date(remote.updated_at) > new Date(state.cloud.updatedAt)) {
+        var ok = confirm('Someone (' + (remote.updated_by_email || 'another team member') + ') saved a newer version ' +
+          timeAgo(remote.updated_at) + '.\n\nOverwrite it with your version?');
+        if (!ok) throw new Error('cancelled');
+      }
+      var doc = buildDocument();
+      doc.cloud = null;
+      return SMC.cloud.saveMap(doc, id);
+    }).then(function (row) {
+      state.cloud = { id: row.id, slug: row.slug, updatedAt: row.updated_at };
+      cloudSnapshot = snapshot();
+      renderCloudStatus();
+      autosave();
+      status('Saved to cloud.');
+      setTimeout(function () { if (!placingType) status(''); }, 2500);
+      return row;
+    }).catch(function (err) {
+      status('');
+      if (err.message !== 'cancelled') alert('Could not save to the cloud. ' + err.message);
+      throw err;
+    });
+  }
+
+  function openCloudList() {
+    if (!cloudReady()) return;
+    if (!SMC.cloud.isStaff()) { openSignIn(openCloudList); return; }
+    $('cloud-list').innerHTML = '<p class="muted">Loading…</p>';
+    $('cloud-dialog').showModal();
+    SMC.cloud.listMaps().then(function (rows) {
+      if (!rows.length) { $('cloud-list').innerHTML = '<p class="muted">No maps in the cloud yet. Use Save to cloud to add one.</p>'; return; }
+      $('cloud-list').innerHTML = '<table class="report"><thead><tr><th>Map</th><th>Last saved</th><th></th></tr></thead><tbody>' +
+        rows.map(function (r) {
+          var current = state.cloud && state.cloud.id === r.id;
+          return '<tr><td><b>' + esc(r.name) + '</b>' + (current ? ' <span class="muted small">(open now)</span>' : '') +
+            '</td><td class="small">' + esc(timeAgo(r.updated_at)) + (r.updated_by_email ? '<br><span class="muted">' +
+            esc(r.updated_by_email) + '</span>' : '') + '</td><td class="row-actions">' +
+            '<button data-open="' + r.id + '" class="primary">Open</button>' +
+            '<button data-link="' + esc(r.slug) + '">Copy link</button>' +
+            '<button data-delete="' + r.id + '" data-name="' + esc(r.name) + '" class="danger">Delete</button></td></tr>';
+        }).join('') + '</tbody></table>';
+    }).catch(function (err) {
+      $('cloud-list').innerHTML = '<p class="error">' + esc(err.message) + '</p>';
+    });
+  }
+
+  function onCloudListClick(e) {
+    var b = e.target.closest('button');
+    if (!b) return;
+    if (b.dataset.open) {
+      if (cloudDirty() || (!state.cloud && state.items.length)) {
+        if (!confirm('Open this map? It replaces the map you have open. Save that one first if you need it.')) return;
+      }
+      b.textContent = 'Opening…';
+      SMC.cloud.loadMap(b.dataset.open).then(function (row) {
+        var doc = row.data;
+        loadDocument(doc, true);
+        state.cloud = { id: row.id, slug: row.slug, updatedAt: row.updated_at };
+        cloudSnapshot = snapshot();
+        renderCloudStatus();
+        autosave();
+        $('cloud-dialog').close();
+      }).catch(function (err) { alert('Could not open that map. ' + err.message); b.textContent = 'Open'; });
+    } else if (b.dataset.link) {
+      copyText(SMC.cloud.shortLink(b.dataset.link)).then(function () { b.textContent = 'Copied'; });
+    } else if (b.dataset.delete) {
+      if (!confirm('Delete "' + b.dataset.name + '" from the cloud for everyone?\n\nIts short link will stop working. This cannot be undone.')) return;
+      SMC.cloud.deleteMap(b.dataset.delete).then(function () {
+        if (state.cloud && state.cloud.id === b.dataset.delete) { state.cloud = null; cloudSnapshot = null; renderCloudStatus(); autosave(); }
+        openCloudList();
+      }).catch(function (err) { alert('Could not delete that map. ' + err.message); });
+    }
+  }
+
+  function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(text);
+    var t = document.createElement('textarea');
+    t.value = text; document.body.appendChild(t); t.select(); document.execCommand('copy'); t.remove();
+    return Promise.resolve();
+  }
+
+  function renderShareShort() {
+    var staff = SMC.cloud.available() && SMC.cloud.isStaff();
+    $('share-short-signedout').hidden = staff;
+    $('share-short-signedin').hidden = !staff;
+    if (!staff) return;
+    $('share-short-link').value = state.cloud ? SMC.cloud.shortLink(state.cloud.slug) : '';
+    $('share-short-copy').textContent = state.cloud ? 'Save and copy link' : 'Save to cloud and copy link';
+    $('share-short-note').textContent = state.cloud
+      ? (cloudDirty() ? 'You have changes not saved to the cloud yet. Saving updates what this link shows.'
+        : 'This link always shows the latest version saved to the cloud.')
+      : 'Saves this map to the SingleTrack cloud so the link can show it.';
+  }
+
+  function shareShort() {
+    var btn = $('share-short-copy');
+    btn.disabled = true;
+    var needSave = !state.cloud || cloudDirty() || cloudSnapshot === null;
+    (needSave ? saveToCloud(false) : Promise.resolve()).then(function () {
+      var link = SMC.cloud.shortLink(state.cloud.slug);
+      $('share-short-link').value = link;
+      return copyText(link);
+    }).then(function () {
+      btn.textContent = 'Copied';
+      renderShareShort();
+      btn.textContent = 'Copied';
+    }).catch(function () { /* message already shown */ }).then(function () { btn.disabled = false; });
   }
 
   // ---------------------------------------------------------- autosave
@@ -1473,7 +1700,31 @@
       e.stopPropagation();
       menu.classList.toggle('open');
     });
-    document.addEventListener('click', function () { menu.classList.remove('open'); });
+    var cloudMenu = $('cloud-menu');
+    $('cloud-btn').addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.classList.remove('open');
+      cloudMenu.classList.toggle('open');
+    });
+    $('file-btn').addEventListener('click', function () { cloudMenu.classList.remove('open'); });
+    document.addEventListener('click', function () { menu.classList.remove('open'); cloudMenu.classList.remove('open'); });
+    cloudMenu.addEventListener('click', function (e) {
+      var action = e.target.getAttribute('data-cloud');
+      if (!action || e.target.disabled) return;
+      cloudMenu.classList.remove('open');
+      if (action === 'signin') openSignIn();
+      if (action === 'signout') SMC.cloud.signOut().catch(function (err) { alert(err.message); });
+      if (action === 'open') openCloudList();
+      if (action === 'save') saveToCloud(false).catch(function () {});
+      if (action === 'saveas') saveToCloud(true).catch(function () {});
+    });
+    $('signin-form').addEventListener('submit', doPasswordSignIn);
+    $('signin-link').addEventListener('click', doLinkSignIn);
+    $('signin-cancel').addEventListener('click', function () { signInAfter = null; $('signin-dialog').close(); });
+    $('cloud-close').addEventListener('click', function () { $('cloud-dialog').close(); });
+    $('cloud-list').addEventListener('click', onCloudListClick);
+    $('share-signin').addEventListener('click', function () { openSignIn(renderShareShort); });
+    $('share-short-copy').addEventListener('click', shareShort);
     menu.addEventListener('click', function (e) {
       var action = e.target.getAttribute('data-action');
       menu.classList.remove('open');
@@ -1566,6 +1817,28 @@
     bindUi();
     initMap();
     renderLibrary();
+    if (SMC.cloud.available()) {
+      SMC.cloud.onChange(renderCloudMenu);
+      SMC.cloud.init();
+    }
+    renderCloudMenu(null);
+    var mapSlug = SMC.cloud.slugFromLocation();
+    if (mapSlug && SMC.cloud.available()) {
+      viewMode = true;
+      document.body.classList.add('view-mode');
+      SMC.cloud.getShared(mapSlug).then(function (row) {
+        var doc = row.data;
+        doc.cloud = null;
+        enterViewMode(doc);
+      }).catch(function (err) {
+        viewMode = false;
+        document.body.classList.remove('view-mode');
+        alert(err.message);
+        window.history.replaceState(null, '', location.pathname);
+        startEditing();
+      });
+      return;
+    }
     var token = SMC.share.tokenFromLocation();
     if (token) {
       if (!SMC.share.supported()) {

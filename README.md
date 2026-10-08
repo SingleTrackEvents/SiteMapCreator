@@ -80,6 +80,22 @@ Good to know:
 - A link is a snapshot. If you change the map, share a new link.
 - Anyone who has the link can see the map, so share it the way you'd share the PDF.
 
+## Cloud maps (SingleTrack team)
+
+Sign in with your @singletrack.com.au email (**Cloud, Sign in**) to keep maps in the SingleTrack cloud instead of passing files around.
+
+- **Cloud, Save to cloud** saves the open map. Saving again updates it. **Save to cloud as a new map** makes a separate copy.
+- **Cloud, Open from cloud** lists every map the team has saved, newest first, with who saved it last. You can open, copy a map's short link or delete it there.
+- Next to the event name you'll see **Saved to cloud** or **Changes not saved to cloud**.
+- If someone else saved a newer version since you opened it, you're asked before overwriting.
+- One person edits a map at a time. The last save wins.
+
+**Short share links.** When you're signed in, **Share** gives a short link like `.../SiteMapCreator/?m=k7x2qp9d4f1a`. It always shows the latest version saved to the cloud, so you don't need to send a new link after changes. The long link is still there for anyone not signed in.
+
+Only SingleTrack emails can list, save or delete maps. Anyone with a short link can view that one map, but nobody can browse or list the maps.
+
+**Setting up (done once):** see `supabase/setup.sql`. Paste it into Supabase, SQL Editor, and run it.
+
 ## Saving your work
 
 - Your current map is kept in the browser automatically, so a refresh will not lose it.
@@ -117,6 +133,9 @@ js/catalogue.js   item library (types, colours, sizes) and imagery sources
 js/geo.js         distance, area, to-scale shape and along-course helpers
 js/kml.js         Google My Maps and KML/KMZ import
 js/reports.js     equipment list and course points
+js/share.js       long view-only links (map packed into the link)
+js/cloud.js       Supabase sign-in, cloud save/open and short links
+supabase/setup.sql  database table and access rules for cloud maps
 js/app.js         the app itself
 ```
 

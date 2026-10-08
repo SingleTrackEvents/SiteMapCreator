@@ -422,3 +422,20 @@ body.print-mode .leaflet-control-scale-line {
   #topbar { flex-wrap: wrap; }
   .search input { width: 160px; }
 }
+
+/* ================= cloud maps ================= */
+.cloud-status { font-size: 12px; color: #b9c2bc; white-space: nowrap; }
+.cloud-status.dirty { color: #ffc078; }
+.menu-note { font-size: 12px; color: var(--muted); padding: 6px 12px 8px; border-bottom: 1px solid var(--line); margin-bottom: 4px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.menu-items button:disabled { opacity: 0.45; cursor: default; }
+.menu-items button[hidden] { display: none; }
+#share-short { display: flex; flex-direction: column; gap: 8px; padding: 12px; border: 1px solid var(--line); border-radius: 8px; }
+#share-short p { margin: 0; }
+#share-short-link { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; }
+#share-long summary { cursor: pointer; font-weight: 600; font-size: 13px; padding: 4px 0; }
+#share-long[open] { display: flex; flex-direction: column; gap: 8px; }
+#cloud-list { overflow-y: auto; max-height: 55vh; }
+.row-actions { white-space: nowrap; text-align: right; }
+.row-actions button { margin-left: 4px; padding: 4px 10px; }
+#signin-form .error, #cloud-list .error { color: var(--danger); }
+@media (max-width: 900px) { .cloud-status { display: none; } }
