@@ -1465,38 +1465,99 @@
       : 'Not signed in';
     $('cloud-signin-item').hidden = !!user;
     $('cloud-signout-item').hidden = !user;
+    $('cloud-password-item').hidden = !user;
     Array.prototype.forEach.call(document.querySelectorAll('[data-cloud="open"],[data-cloud="save"],[data-cloud="saveas"]'),
       function (b) { b.disabled = !staff; });
     if ($('share-dialog').open) renderShareShort();
   }
 
-  function openSignIn(after) {
+  var signInAfter = null;
+
+  var SIGNIN_MODES = {
+    signin: { title: 'Sign in to cloud maps', intro: 'For the SingleTrack team. Use your @singletrack.com.au email.',
+      pw: 'Password', submit: 'Sign in', autocomplete: 'current-password' },
+    signup: { title: 'Create an account', intro: 'Use your @singletrack.com.au email. We\'ll email you a link to ' +
+      'confirm it\'s yours, then you\'re in.', pw: 'Choose a password (at least 8 characters)', submit: 'Create account',
+      autocomplete: 'new-password' },
+    forgot: { title: 'Reset your password', intro: 'We\'ll email you a link to choose a new password.',
+      submit: 'Email me a reset link' },
+    newpw: { title: 'Choose a new password', intro: 'At least 8 characters.', pw: 'New password',
+      submit: 'Save new password', autocomplete: 'new-password' }
+  };
+
+  function setSignInMode(mode) {
+    var m = SIGNIN_MODES[mode];
+    var form = $('signin-form');
+    form.setAttribute('data-mode', mode);
+    $('signin-title').textContent = m.title;
+    $('signin-intro').textContent = m.intro;
+    $('signin-submit').textContent = m.submit;
+    $('signin-submit').disabled = false;
+    if (m.pw) {
+      $('signin-password-label').textContent = m.pw;
+      $('signin-password').setAttribute('autocomplete', m.autocomplete);
+    }
+    $('signin-password').value = '';
+    $('signin-password2').value = '';
+    signInMessage('');
+  }
+
+  function openSignIn(after, mode) {
     if (!cloudReady()) return;
     signInAfter = after || null;
-    $('signin-msg').textContent = '';
-    $('signin-msg').className = 'small';
-    $('signin-password').value = '';
-    $('signin-dialog').showModal();
-    $('signin-email').focus();
+    setSignInMode(mode || 'signin');
+    if (!$('signin-dialog').open) $('signin-dialog').showModal();
+    var first = mode === 'newpw' ? $('signin-password') : $('signin-email');
+    first.focus();
   }
-  var signInAfter = null;
 
   function signInMessage(text, isError) {
     $('signin-msg').textContent = text;
     $('signin-msg').className = 'small' + (isError ? ' error' : '');
   }
 
-  function doPasswordSignIn(e) {
+  function signInDone() {
+    $('signin-dialog').close();
+    var next = signInAfter;
+    signInAfter = null;
+    if (next) next();
+  }
+
+  function onSignInSubmit(e) {
     e.preventDefault();
-    var email = $('signin-email').value, pw = $('signin-password').value;
-    if (!pw) { signInMessage('Enter your password, or click "Email me a sign-in link".', true); return; }
-    signInMessage('Signing in…');
+    var mode = $('signin-form').getAttribute('data-mode');
+    var email = $('signin-email').value, pw = $('signin-password').value, pw2 = $('signin-password2').value;
+    var run = function (promise, busy, ok) {
+      signInMessage(busy);
+      $('signin-submit').disabled = true;
+      promise.then(ok).catch(function (err) { signInMessage(err.message, true); })
+        .then(function () { $('signin-submit').disabled = false; });
+    };
     try {
-      SMC.cloud.signInWithPassword(email, pw).then(function () {
-        $('signin-dialog').close();
-        var next = signInAfter; signInAfter = null;
-        if (next) next();
-      }).catch(function (err) { signInMessage(err.message, true); });
+      if (mode === 'signin') {
+        if (!pw) { signInMessage('Enter your password, or use "Forgot password?".', true); return; }
+        run(SMC.cloud.signInWithPassword(email, pw), 'Signing in…', signInDone);
+      } else if (mode === 'signup' || mode === 'newpw') {
+        if (pw.length < 8) { signInMessage('Please use at least 8 characters.', true); return; }
+        if (pw !== pw2) { signInMessage('The two passwords don\'t match.', true); return; }
+        if (mode === 'newpw') {
+          run(SMC.cloud.updatePassword(pw), 'Saving…', function () {
+            signInDone();
+            status('Password changed.');
+            setTimeout(function () { if (!placingType) status(''); }, 2500);
+          });
+        } else {
+          run(SMC.cloud.signUp(email, pw), 'Creating your account…', function (r) {
+            if (r.existing) signInMessage('There\'s already an account for this email. Sign in, or use "Forgot password?".', true);
+            else if (r.confirmed) signInDone();
+            else signInMessage('Nearly there. Check your email and click the confirmation link. It brings you back here, signed in.');
+          });
+        }
+      } else if (mode === 'forgot') {
+        run(SMC.cloud.sendPasswordReset(email), 'Sending…', function () {
+          signInMessage('If there\'s an account for this email, a reset link is on its way. Check your inbox (and junk folder).');
+        });
+      }
     } catch (err) { signInMessage(err.message, true); }
   }
 
@@ -1504,8 +1565,7 @@
     signInMessage('Sending…');
     try {
       SMC.cloud.sendSignInLink($('signin-email').value).then(function () {
-        signInMessage('Check your email and click the sign-in link. It brings you back here, signed in. ' +
-          'Save your map to a file first if you have unsaved work in another tab.');
+        signInMessage('Check your email and click the sign-in link. It brings you back here, signed in.');
       }).catch(function (err) { signInMessage(err.message, true); });
     } catch (err) { signInMessage(err.message, true); }
   }
@@ -1714,11 +1774,16 @@
       cloudMenu.classList.remove('open');
       if (action === 'signin') openSignIn();
       if (action === 'signout') SMC.cloud.signOut().catch(function (err) { alert(err.message); });
+      if (action === 'password') openSignIn(null, 'newpw');
       if (action === 'open') openCloudList();
       if (action === 'save') saveToCloud(false).catch(function () {});
       if (action === 'saveas') saveToCloud(true).catch(function () {});
     });
-    $('signin-form').addEventListener('submit', doPasswordSignIn);
+    $('signin-form').addEventListener('submit', onSignInSubmit);
+    $('signin-form').addEventListener('click', function (e) {
+      var go = e.target.getAttribute('data-goto');
+      if (go) setSignInMode(go);
+    });
     $('signin-link').addEventListener('click', doLinkSignIn);
     $('signin-cancel').addEventListener('click', function () { signInAfter = null; $('signin-dialog').close(); });
     $('cloud-close').addEventListener('click', function () { $('cloud-dialog').close(); });
@@ -1819,6 +1884,7 @@
     renderLibrary();
     if (SMC.cloud.available()) {
       SMC.cloud.onChange(renderCloudMenu);
+      SMC.cloud.onPasswordRecovery(function () { openSignIn(null, 'newpw'); });
       SMC.cloud.init();
     }
     renderCloudMenu(null);

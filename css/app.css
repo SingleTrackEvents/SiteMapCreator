@@ -439,3 +439,11 @@ body.print-mode .leaflet-control-scale-line {
 .row-actions button { margin-left: 4px; padding: 4px 10px; }
 #signin-form .error, #cloud-list .error { color: var(--danger); }
 @media (max-width: 900px) { .cloud-status { display: none; } }
+/* account dialog: only show the fields and links for the current mode */
+#signin-form .mode-signin, #signin-form .mode-signup, #signin-form .mode-forgot, #signin-form .mode-newpw { display: none; }
+#signin-form[data-mode="signin"] .field.mode-signin, #signin-form[data-mode="signup"] .field.mode-signup,
+#signin-form[data-mode="forgot"] .field.mode-forgot, #signin-form[data-mode="newpw"] .field.mode-newpw { display: flex; }
+#signin-form[data-mode="signin"] button.mode-signin, #signin-form[data-mode="signup"] button.mode-signup,
+#signin-form[data-mode="forgot"] button.mode-forgot { display: inline; }
+.signin-links { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+#signin-msg:empty { display: none; }

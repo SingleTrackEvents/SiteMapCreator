@@ -6,7 +6,7 @@
   <title>Site Map Creator</title>
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
   <link rel="stylesheet" href="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.css">
-  <link rel="stylesheet" href="css/app.css?v=5">
+  <link rel="stylesheet" href="css/app.css?v=6">
   <style id="page-size"></style>
 </head>
 <body>
@@ -46,6 +46,7 @@
         <button data-cloud="save">Save to cloud</button>
         <button data-cloud="saveas">Save to cloud as a new map</button>
         <hr>
+        <button data-cloud="password" id="cloud-password-item">Change password…</button>
         <button data-cloud="signout" id="cloud-signout-item">Sign out</button>
       </div>
     </div>
@@ -210,19 +211,27 @@
     </div>
   </dialog>
 
-  <!-- Cloud sign-in dialog -->
+  <!-- Cloud account dialog: sign in, create account, forgot password, new password -->
   <dialog id="signin-dialog">
-    <form class="dlg" id="signin-form">
-      <h2>Sign in to cloud maps</h2>
-      <p class="muted">For the SingleTrack team. Use your @singletrack.com.au email.</p>
-      <label class="field"><span>Email</span><input id="signin-email" type="email" autocomplete="email" placeholder="name@singletrack.com.au"></label>
-      <label class="field"><span>Password (if you have one)</span><input id="signin-password" type="password" autocomplete="current-password"></label>
+    <form class="dlg" id="signin-form" data-mode="signin">
+      <h2 id="signin-title">Sign in to cloud maps</h2>
+      <p class="muted" id="signin-intro">For the SingleTrack team. Use your @singletrack.com.au email.</p>
+      <label class="field mode-signin mode-signup mode-forgot"><span>Email</span>
+        <input id="signin-email" type="email" autocomplete="email" placeholder="name@singletrack.com.au"></label>
+      <label class="field mode-signin mode-signup mode-newpw"><span id="signin-password-label">Password</span>
+        <input id="signin-password" type="password" autocomplete="current-password"></label>
+      <label class="field mode-signup mode-newpw"><span>Type the password again</span>
+        <input id="signin-password2" type="password" autocomplete="new-password"></label>
       <p id="signin-msg" class="small"></p>
+      <div class="signin-links small">
+        <button type="button" class="link mode-signin" data-goto="signup">Create an account</button>
+        <button type="button" class="link mode-signin" data-goto="forgot">Forgot password?</button>
+        <button type="button" class="link mode-signin" id="signin-link">Email me a sign-in link instead</button>
+        <button type="button" class="link mode-signup mode-forgot" data-goto="signin">Back to sign in</button>
+      </div>
       <div class="dialog-actions">
-        <button type="button" id="signin-link">Email me a sign-in link</button>
-        <span class="spacer"></span>
         <button type="button" id="signin-cancel">Cancel</button>
-        <button type="submit" class="primary">Sign in</button>
+        <button type="submit" class="primary" id="signin-submit">Sign in</button>
       </div>
     </form>
   </dialog>
@@ -264,12 +273,12 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="https://unpkg.com/@geoman-io/leaflet-geoman-free@2.17.0/dist/leaflet-geoman.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.117.3/dist/umd/supabase.min.js"></script>
-  <script src="js/catalogue.js?v=5"></script>
-  <script src="js/geo.js?v=5"></script>
-  <script src="js/kml.js?v=5"></script>
-  <script src="js/reports.js?v=5"></script>
-  <script src="js/share.js?v=5"></script>
-  <script src="js/cloud.js?v=5"></script>
-  <script src="js/app.js?v=5"></script>
+  <script src="js/catalogue.js?v=6"></script>
+  <script src="js/geo.js?v=6"></script>
+  <script src="js/kml.js?v=6"></script>
+  <script src="js/reports.js?v=6"></script>
+  <script src="js/share.js?v=6"></script>
+  <script src="js/cloud.js?v=6"></script>
+  <script src="js/app.js?v=6"></script>
 </body>
 </html>

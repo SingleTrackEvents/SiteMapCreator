@@ -16,6 +16,7 @@ SMC.cloud = (function () {
   var client = null;
   var user = null;
   var listeners = [];
+  var recoveryListeners = [];
 
   function available() {
     return !!(window.supabase && window.supabase.createClient);
@@ -29,7 +30,11 @@ SMC.cloud = (function () {
       auth: { flowType: 'implicit', persistSession: true, detectSessionInUrl: true }
     });
     client.auth.getSession().then(function (r) { setUser(r.data.session && r.data.session.user); });
-    client.auth.onAuthStateChange(function (event, session) { setUser(session && session.user); });
+    client.auth.onAuthStateChange(function (event, session) {
+      setUser(session && session.user);
+      // Arrived from a "reset your password" email: ask for a new one.
+      if (event === 'PASSWORD_RECOVERY') recoveryListeners.forEach(function (fn) { fn(); });
+    });
   }
 
   function setUser(u) {
@@ -38,6 +43,11 @@ SMC.cloud = (function () {
   }
 
   function onChange(fn) { listeners.push(fn); }
+  function onPasswordRecovery(fn) { recoveryListeners.push(fn); }
+
+  function backHere() {
+    return location.origin + location.pathname;
+  }
 
   function isStaff(u) {
     u = u || user;
@@ -72,8 +82,34 @@ SMC.cloud = (function () {
     email = checkEmail(email);
     return client.auth.signInWithOtp({
       email: email,
-      options: { emailRedirectTo: location.origin + location.pathname }
+      options: { emailRedirectTo: backHere() }
     }).then(fail);
+  }
+
+  // Creates an account. Supabase emails a confirmation link, which proves the
+  // person owns the address before they can see any maps.
+  function signUp(email, password) {
+    need();
+    email = checkEmail(email);
+    return client.auth.signUp({ email: email, password: password, options: { emailRedirectTo: backHere() } })
+      .then(fail)
+      .then(function (data) {
+        // Supabase hides whether an address is already registered: an
+        // existing account comes back with no identities.
+        var existing = data && data.user && data.user.identities && data.user.identities.length === 0;
+        return { existing: existing, confirmed: !!(data && data.session) };
+      });
+  }
+
+  function sendPasswordReset(email) {
+    need();
+    email = checkEmail(email);
+    return client.auth.resetPasswordForEmail(email, { redirectTo: backHere() }).then(fail);
+  }
+
+  function updatePassword(password) {
+    need();
+    return client.auth.updateUser({ password: password }).then(fail);
   }
 
   function signOut() {
@@ -139,6 +175,10 @@ SMC.cloud = (function () {
     init: init,
     available: available,
     onChange: onChange,
+    onPasswordRecovery: onPasswordRecovery,
+    signUp: signUp,
+    sendPasswordReset: sendPasswordReset,
+    updatePassword: updatePassword,
     user: function () { return user; },
     isStaff: isStaff,
     signInWithPassword: signInWithPassword,

@@ -84,6 +84,8 @@ Good to know:
 
 Sign in with your @singletrack.com.au email (**Cloud, Sign in**) to keep maps in the SingleTrack cloud instead of passing files around.
 
+**First time?** In the sign-in window click **Create an account**, enter your SingleTrack email and choose a password. You'll get an email with a confirmation link; click it and you're signed in. Forgot your password? Use **Forgot password?** in the same window. To change it later: **Cloud, Change password**.
+
 - **Cloud, Save to cloud** saves the open map. Saving again updates it. **Save to cloud as a new map** makes a separate copy.
 - **Cloud, Open from cloud** lists every map the team has saved, newest first, with who saved it last. You can open, copy a map's short link or delete it there.
 - Next to the event name you'll see **Saved to cloud** or **Changes not saved to cloud**.
