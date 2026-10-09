@@ -1459,11 +1459,12 @@
     el.classList.toggle('dirty', cloudDirty());
   }
 
-  function renderCloudMenu(user) {
-    var staff = SMC.cloud.isStaff(user);
-    $('cloud-who').textContent = user ? (staff ? 'Signed in as ' + user.email : user.email + ' (not a SingleTrack email)')
-      : 'Not signed in';
-    $('cloud-signin-item').hidden = !!user;
+  function renderCloudMenu(user, member) {
+    var staff = !!(user && member);
+    $('cloud-who').textContent = !user ? 'Not signed in'
+      : staff ? 'Signed in as ' + user.email : user.email + ' (needs the team join code)';
+    $('cloud-signin-item').hidden = !!user && staff;
+    $('cloud-signin-item').textContent = user ? 'Enter team join code…' : 'Sign in or create an account…';
     $('cloud-signout-item').hidden = !user;
     $('cloud-password-item').hidden = !user;
     Array.prototype.forEach.call(document.querySelectorAll('[data-cloud="open"],[data-cloud="save"],[data-cloud="saveas"]'),
@@ -1474,13 +1475,14 @@
   var signInAfter = null;
 
   var SIGNIN_MODES = {
-    signin: { title: 'Sign in to cloud maps', intro: 'For the SingleTrack team. Use your @singletrack.com.au email.',
+    signin: { title: 'Sign in to cloud maps', intro: 'For the SingleTrack team. Forgot your password? Create a new ' +
+      'account with the join code, or ask whoever looks after Supabase to reset it.',
       pw: 'Password', submit: 'Sign in', autocomplete: 'current-password' },
-    signup: { title: 'Create an account', intro: 'Use your @singletrack.com.au email. We\'ll email you a link to ' +
-      'confirm it\'s yours, then you\'re in.', pw: 'Choose a password (at least 8 characters)', submit: 'Create account',
+    signup: { title: 'Create an account', intro: 'Use your @singletrack.com.au email, choose a password and enter ' +
+      'the team join code.', pw: 'Choose a password (at least 8 characters)', submit: 'Create account',
       autocomplete: 'new-password' },
-    forgot: { title: 'Reset your password', intro: 'We\'ll email you a link to choose a new password.',
-      submit: 'Email me a reset link' },
+    join: { title: 'Enter the team join code', intro: 'You\'re signed in, but this account isn\'t on the team yet. ' +
+      'Enter the join code to see and save cloud maps.', submit: 'Join the team' },
     newpw: { title: 'Choose a new password', intro: 'At least 8 characters.', pw: 'New password',
       submit: 'Save new password', autocomplete: 'new-password' }
   };
@@ -1499,15 +1501,16 @@
     }
     $('signin-password').value = '';
     $('signin-password2').value = '';
+    $('signin-code').value = '';
     signInMessage('');
   }
 
   function openSignIn(after, mode) {
     if (!cloudReady()) return;
     signInAfter = after || null;
-    setSignInMode(mode || 'signin');
+    setSignInMode(mode || (SMC.cloud.isSignedIn() ? 'join' : 'signin'));
     if (!$('signin-dialog').open) $('signin-dialog').showModal();
-    var first = mode === 'newpw' ? $('signin-password') : $('signin-email');
+    var first = mode === 'newpw' ? $('signin-password') : mode === 'join' ? $('signin-code') : $('signin-email');
     first.focus();
   }
 
@@ -1527,47 +1530,60 @@
     e.preventDefault();
     var mode = $('signin-form').getAttribute('data-mode');
     var email = $('signin-email').value, pw = $('signin-password').value, pw2 = $('signin-password2').value;
-    var run = function (promise, busy, ok) {
-      signInMessage(busy);
-      $('signin-submit').disabled = true;
-      promise.then(ok).catch(function (err) { signInMessage(err.message, true); })
-        .then(function () { $('signin-submit').disabled = false; });
+    var code = $('signin-code').value.trim();
+    var busy = function (text) { signInMessage(text); $('signin-submit').disabled = true; };
+    var done = function () { $('signin-submit').disabled = false; };
+    var failed = function (err) { signInMessage(err.message, true); done(); };
+    // After signing up or entering a code: members are done, everyone else retries the code.
+    var afterJoin = function (ok) {
+      done();
+      if (ok) { signInDone(); return; }
+      setSignInMode('join');
+      signInMessage('That join code isn\'t right. Check it with the ops team and try again.', true);
     };
     try {
       if (mode === 'signin') {
-        if (!pw) { signInMessage('Enter your password, or use "Forgot password?".', true); return; }
-        run(SMC.cloud.signInWithPassword(email, pw), 'Signing in…', signInDone);
-      } else if (mode === 'signup' || mode === 'newpw') {
+        if (!pw) { signInMessage('Enter your password.', true); return; }
+        busy('Signing in…');
+        SMC.cloud.signInWithPassword(email, pw).then(waitForMembership).then(function (isMember) {
+          done();
+          if (isMember) signInDone();
+          else setSignInMode('join');
+        }).catch(failed);
+      } else if (mode === 'signup') {
         if (pw.length < 8) { signInMessage('Please use at least 8 characters.', true); return; }
         if (pw !== pw2) { signInMessage('The two passwords don\'t match.', true); return; }
-        if (mode === 'newpw') {
-          run(SMC.cloud.updatePassword(pw), 'Saving…', function () {
-            signInDone();
-            status('Password changed.');
-            setTimeout(function () { if (!placingType) status(''); }, 2500);
-          });
-        } else {
-          run(SMC.cloud.signUp(email, pw), 'Creating your account…', function (r) {
-            if (r.existing) signInMessage('There\'s already an account for this email. Sign in, or use "Forgot password?".', true);
-            else if (r.confirmed) signInDone();
-            else signInMessage('Nearly there. Check your email and click the confirmation link. It brings you back here, signed in.');
-          });
-        }
-      } else if (mode === 'forgot') {
-        run(SMC.cloud.sendPasswordReset(email), 'Sending…', function () {
-          signInMessage('If there\'s an account for this email, a reset link is on its way. Check your inbox (and junk folder).');
-        });
+        if (!code) { signInMessage('Enter the team join code.', true); return; }
+        busy('Creating your account…');
+        SMC.cloud.signUp(email, pw).then(function () { return SMC.cloud.joinTeam(code); }).then(afterJoin).catch(failed);
+      } else if (mode === 'join') {
+        if (!code) { signInMessage('Enter the team join code.', true); return; }
+        busy('Checking…');
+        SMC.cloud.joinTeam(code).then(afterJoin).catch(failed);
+      } else if (mode === 'newpw') {
+        if (pw.length < 8) { signInMessage('Please use at least 8 characters.', true); return; }
+        if (pw !== pw2) { signInMessage('The two passwords don\'t match.', true); return; }
+        busy('Saving…');
+        SMC.cloud.updatePassword(pw).then(function () {
+          done();
+          signInDone();
+          status('Password changed.');
+          setTimeout(function () { if (!placingType) status(''); }, 2500);
+        }).catch(failed);
       }
-    } catch (err) { signInMessage(err.message, true); }
+    } catch (err) { failed(err); }
   }
 
-  function doLinkSignIn() {
-    signInMessage('Sending…');
-    try {
-      SMC.cloud.sendSignInLink($('signin-email').value).then(function () {
-        signInMessage('Check your email and click the sign-in link. It brings you back here, signed in.');
-      }).catch(function (err) { signInMessage(err.message, true); });
-    } catch (err) { signInMessage(err.message, true); }
+  // Membership is checked in the background after sign-in; wait briefly for it.
+  function waitForMembership() {
+    return new Promise(function (resolve) {
+      var tries = 0;
+      (function check() {
+        if (SMC.cloud.isStaff()) return resolve(true);
+        if (++tries > 20) return resolve(false);
+        setTimeout(check, 150);
+      })();
+    });
   }
 
   // Saves the current map to the cloud (a new map when asNew or not yet saved).
@@ -1772,7 +1788,7 @@
       var action = e.target.getAttribute('data-cloud');
       if (!action || e.target.disabled) return;
       cloudMenu.classList.remove('open');
-      if (action === 'signin') openSignIn();
+      if (action === 'signin') openSignIn(null, SMC.cloud.isSignedIn() ? 'join' : 'signin');
       if (action === 'signout') SMC.cloud.signOut().catch(function (err) { alert(err.message); });
       if (action === 'password') openSignIn(null, 'newpw');
       if (action === 'open') openCloudList();
@@ -1784,7 +1800,6 @@
       var go = e.target.getAttribute('data-goto');
       if (go) setSignInMode(go);
     });
-    $('signin-link').addEventListener('click', doLinkSignIn);
     $('signin-cancel').addEventListener('click', function () { signInAfter = null; $('signin-dialog').close(); });
     $('cloud-close').addEventListener('click', function () { $('cloud-dialog').close(); });
     $('cloud-list').addEventListener('click', onCloudListClick);
@@ -1884,7 +1899,6 @@
     renderLibrary();
     if (SMC.cloud.available()) {
       SMC.cloud.onChange(renderCloudMenu);
-      SMC.cloud.onPasswordRecovery(function () { openSignIn(null, 'newpw'); });
       SMC.cloud.init();
     }
     renderCloudMenu(null);

@@ -1,6 +1,7 @@
 /*
- * Cloud maps in Supabase: sign in with a SingleTrack email, save and open
- * maps the whole team shares, and short share links (?m=slug).
+ * Cloud maps in Supabase: create an account with the team join code, save
+ * and open maps the whole team shares, and short share links (?m=slug).
+ * No emails are sent: accounts are confirmed by the join code instead.
  *
  * The URL and publishable key are meant to be public. What people can do
  * is decided by the database rules in supabase/setup.sql.
@@ -15,8 +16,9 @@ SMC.cloud = (function () {
 
   var client = null;
   var user = null;
+  // True once the database confirms this user has entered the join code.
+  var member = false;
   var listeners = [];
-  var recoveryListeners = [];
 
   function available() {
     return !!(window.supabase && window.supabase.createClient);
@@ -25,33 +27,36 @@ SMC.cloud = (function () {
   function init() {
     if (!available()) return;
     client = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-      // Implicit flow: the emailed sign-in link works even when opened in a
-      // different browser from the one that asked for it.
-      auth: { flowType: 'implicit', persistSession: true, detectSessionInUrl: true }
+      auth: { persistSession: true, autoRefreshToken: true }
     });
     client.auth.getSession().then(function (r) { setUser(r.data.session && r.data.session.user); });
     client.auth.onAuthStateChange(function (event, session) {
       setUser(session && session.user);
-      // Arrived from a "reset your password" email: ask for a new one.
-      if (event === 'PASSWORD_RECOVERY') recoveryListeners.forEach(function (fn) { fn(); });
     });
   }
 
   function setUser(u) {
+    var changed = (u && u.id) !== (user && user.id);
     user = u || null;
-    listeners.forEach(function (fn) { fn(user); });
+    if (!user) { member = false; notify(); return; }
+    if (!changed) { notify(); return; }
+    member = false;
+    notify();
+    client.rpc('site_maps_is_staff').then(function (res) {
+      member = !res.error && res.data === true;
+      notify();
+    });
+  }
+
+  function notify() {
+    listeners.forEach(function (fn) { fn(user, member); });
   }
 
   function onChange(fn) { listeners.push(fn); }
-  function onPasswordRecovery(fn) { recoveryListeners.push(fn); }
 
-  function backHere() {
-    return location.origin + location.pathname;
-  }
 
-  function isStaff(u) {
-    u = u || user;
-    return !!(u && u.email && u.email.toLowerCase().slice(-STAFF_DOMAIN.length) === STAFF_DOMAIN);
+  function isStaff() {
+    return !!(user && member);
   }
 
   function need() {
@@ -77,34 +82,34 @@ SMC.cloud = (function () {
     return client.auth.signInWithPassword({ email: email, password: password }).then(fail);
   }
 
-  function sendSignInLink(email) {
-    need();
-    email = checkEmail(email);
-    return client.auth.signInWithOtp({
-      email: email,
-      options: { emailRedirectTo: backHere() }
-    }).then(fail);
-  }
-
-  // Creates an account. Supabase emails a confirmation link, which proves the
-  // person owns the address before they can see any maps.
+  // Creates an account. Email confirmation is turned off in Supabase, so
+  // this signs the person straight in; the join code then makes them a
+  // team member.
   function signUp(email, password) {
     need();
     email = checkEmail(email);
-    return client.auth.signUp({ email: email, password: password, options: { emailRedirectTo: backHere() } })
-      .then(fail)
-      .then(function (data) {
-        // Supabase hides whether an address is already registered: an
-        // existing account comes back with no identities.
+    return client.auth.signUp({ email: email, password: password }).then(fail).then(function (data) {
+      if (!data || !data.session) {
+        // Either the address already has an account, or Supabase still has
+        // "Confirm email" turned on.
         var existing = data && data.user && data.user.identities && data.user.identities.length === 0;
-        return { existing: existing, confirmed: !!(data && data.session) };
-      });
+        throw new Error(existing
+          ? 'There\'s already an account for this email. Use Sign in instead.'
+          : 'Your account was created but needs email confirmation, which is turned on in Supabase. ' +
+            'Ask the person who manages Supabase to turn off "Confirm email".');
+      }
+      return data;
+    });
   }
 
-  function sendPasswordReset(email) {
+  // Enters the team join code. Resolves true when accepted.
+  function joinTeam(code) {
     need();
-    email = checkEmail(email);
-    return client.auth.resetPasswordForEmail(email, { redirectTo: backHere() }).then(fail);
+    if (!user) return Promise.reject(new Error('Please sign in first.'));
+    return client.rpc('site_maps_join', { p_code: code }).then(fail).then(function (ok) {
+      if (ok) { member = true; notify(); }
+      return ok === true;
+    });
   }
 
   function updatePassword(password) {
@@ -175,14 +180,13 @@ SMC.cloud = (function () {
     init: init,
     available: available,
     onChange: onChange,
-    onPasswordRecovery: onPasswordRecovery,
     signUp: signUp,
-    sendPasswordReset: sendPasswordReset,
+    joinTeam: joinTeam,
     updatePassword: updatePassword,
+    isSignedIn: function () { return !!user; },
     user: function () { return user; },
     isStaff: isStaff,
     signInWithPassword: signInWithPassword,
-    sendSignInLink: sendSignInLink,
     signOut: signOut,
     listMaps: listMaps,
     loadMap: loadMap,

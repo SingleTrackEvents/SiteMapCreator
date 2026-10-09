@@ -5,10 +5,16 @@
 -- replaces the functions and policies.
 --
 -- Who can do what:
---   * Anyone signed in with an @singletrack.com.au email can list, open,
---     save, update and delete maps (the whole ops team shares one library).
+--   * Team members (people who created an account and entered the team
+--     join code) can list, open, save, update and delete maps. The whole
+--     ops team shares one library.
 --   * Anyone else, signed in or not, can only open a map through its short
 --     link, using get_shared_map(slug). They can't list or browse maps.
+--
+-- The join code itself is NOT in this file (this file is public on
+-- GitHub). Set it separately in the SQL Editor:
+--   insert into public.site_maps_settings (id, join_code) values (1, 'your-code')
+--   on conflict (id) do update set join_code = excluded.join_code;
 
 create extension if not exists pgcrypto;
 
@@ -41,14 +47,63 @@ create trigger site_maps_touch
   before update on public.site_maps
   for each row execute function public.site_maps_touch();
 
--- True when the signed-in user has a SingleTrack email address.
+-- Team members: people who have entered the join code.
+create table if not exists public.site_maps_members (
+  user_id uuid primary key references auth.users (id) on delete cascade,
+  email text,
+  joined_at timestamptz not null default now()
+);
+alter table public.site_maps_members enable row level security;
+revoke all on public.site_maps_members from anon, authenticated;
+
+-- One row holding the team join code. Nobody can read it through the API.
+create table if not exists public.site_maps_settings (
+  id int primary key default 1 check (id = 1),
+  join_code text not null
+);
+alter table public.site_maps_settings enable row level security;
+revoke all on public.site_maps_settings from anon, authenticated;
+
+-- True when the signed-in user is a team member.
 create or replace function public.site_maps_is_staff()
 returns boolean
 language sql
 stable
+security definer
+set search_path = public
 as $$
-  select coalesce(lower(auth.jwt() ->> 'email') like '%@singletrack.com.au', false);
+  select exists (select 1 from public.site_maps_members where user_id = auth.uid());
 $$;
+revoke all on function public.site_maps_is_staff() from public;
+grant execute on function public.site_maps_is_staff() to authenticated;
+
+-- Joins the team when the code matches. Returns true on success.
+create or replace function public.site_maps_join(p_code text)
+returns boolean
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  ok boolean;
+begin
+  if auth.uid() is null then
+    return false;
+  end if;
+  select exists (
+    select 1 from public.site_maps_settings
+    where lower(trim(join_code)) = lower(trim(coalesce(p_code, '')))
+  ) into ok;
+  if ok then
+    insert into public.site_maps_members (user_id, email)
+    values (auth.uid(), auth.jwt() ->> 'email')
+    on conflict (user_id) do nothing;
+  end if;
+  return ok;
+end;
+$$;
+revoke all on function public.site_maps_join(text) from public;
+grant execute on function public.site_maps_join(text) to authenticated;
 
 alter table public.site_maps enable row level security;
 
@@ -88,3 +143,5 @@ $$;
 
 revoke all on function public.get_shared_map(text) from public;
 grant execute on function public.get_shared_map(text) to anon, authenticated;
+
+notify pgrst, 'reload schema';

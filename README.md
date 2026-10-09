@@ -84,7 +84,7 @@ Good to know:
 
 Sign in with your @singletrack.com.au email (**Cloud, Sign in**) to keep maps in the SingleTrack cloud instead of passing files around.
 
-**First time?** In the sign-in window click **Create an account**, enter your SingleTrack email and choose a password. You'll get an email with a confirmation link; click it and you're signed in. Forgot your password? Use **Forgot password?** in the same window. To change it later: **Cloud, Change password**.
+**First time?** Click **Cloud, Sign in or create an account**, then **New here? Create an account**. Enter your SingleTrack email, choose a password and type the **team join code** (ask the ops team). You're straight in, no emails needed. To change your password later: **Cloud, Change password**. Forgotten it? Create a new account with the join code, or ask whoever looks after Supabase to reset it.
 
 - **Cloud, Save to cloud** saves the open map. Saving again updates it. **Save to cloud as a new map** makes a separate copy.
 - **Cloud, Open from cloud** lists every map the team has saved, newest first, with who saved it last. You can open, copy a map's short link or delete it there.
@@ -94,9 +94,14 @@ Sign in with your @singletrack.com.au email (**Cloud, Sign in**) to keep maps in
 
 **Short share links.** When you're signed in, **Share** gives a short link like `.../SiteMapCreator/?m=k7x2qp9d4f1a`. It always shows the latest version saved to the cloud, so you don't need to send a new link after changes. The long link is still there for anyone not signed in.
 
-Only SingleTrack emails can list, save or delete maps. Anyone with a short link can view that one map, but nobody can browse or list the maps.
+Only team members (accounts that entered the join code) can list, save or delete maps. Anyone with a short link can view that one map, but nobody can browse or list the maps.
 
-**Setting up (done once):** see `supabase/setup.sql`. Paste it into Supabase, SQL Editor, and run it.
+**Setting up (done once):**
+1. Paste `supabase/setup.sql` into Supabase, SQL Editor, and run it.
+2. Set the join code (keep it out of this public repo):
+   `insert into public.site_maps_settings (id, join_code) values (1, 'your-code') on conflict (id) do update set join_code = excluded.join_code;`
+   Run the same line with a new code any time to change it. People who already joined stay in.
+3. In Supabase, Authentication, Sign In / Providers, Email: turn **Confirm email** off.
 
 ## Saving your work
 
