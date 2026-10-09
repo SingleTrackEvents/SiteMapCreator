@@ -74,7 +74,7 @@ set search_path = public
 as $$
   select exists (select 1 from public.site_maps_members where user_id = auth.uid());
 $$;
-revoke all on function public.site_maps_is_staff() from public;
+revoke all on function public.site_maps_is_staff() from public, anon;
 grant execute on function public.site_maps_is_staff() to authenticated;
 
 -- Joins the team when the code matches. Returns true on success.
@@ -102,7 +102,7 @@ begin
   return ok;
 end;
 $$;
-revoke all on function public.site_maps_join(text) from public;
+revoke all on function public.site_maps_join(text) from public, anon;
 grant execute on function public.site_maps_join(text) to authenticated;
 
 alter table public.site_maps enable row level security;
