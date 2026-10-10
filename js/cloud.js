@@ -145,6 +145,13 @@ SMC.cloud = (function () {
     return q.select('id, slug, name, updated_at').single().then(fail);
   }
 
+  // The id of the map behind a short link, or null if it no longer exists.
+  function idForSlug(slug) {
+    need();
+    return client.from(TABLE).select('id').eq('slug', slug).maybeSingle().then(fail)
+      .then(function (row) { return row ? row.id : null; });
+  }
+
   function remoteInfo(id) {
     need();
     return client.from(TABLE).select('updated_at, updated_by_email').eq('id', id).maybeSingle().then(fail);
@@ -192,6 +199,7 @@ SMC.cloud = (function () {
     loadMap: loadMap,
     saveMap: saveMap,
     remoteInfo: remoteInfo,
+    idForSlug: idForSlug,
     deleteMap: deleteMap,
     getShared: getShared,
     shortLink: shortLink,

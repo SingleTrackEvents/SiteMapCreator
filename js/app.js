@@ -894,7 +894,8 @@
     state.meta = Object.assign(defaultMeta(), doc.meta || {});
     state.items = items;
     state.hidden = doc.hidden || {};
-    state.cloud = doc.cloud && doc.cloud.id ? doc.cloud : null;
+    // A file can name its cloud map by id, or just by its short-link slug.
+    state.cloud = doc.cloud && (doc.cloud.id || doc.cloud.slug) ? doc.cloud : null;
     cloudSnapshot = null;
     state.view.labels = !!(doc.view && doc.view.labels);
     setBasemap(doc.view && doc.view.basemap);
@@ -1595,9 +1596,14 @@
       });
     }
     var id = !asNew && state.cloud ? state.cloud.id : null;
-    var check = id ? SMC.cloud.remoteInfo(id) : Promise.resolve(null);
+    var slugOnly = !asNew && state.cloud && !state.cloud.id && state.cloud.slug;
     status('Saving to cloud…');
-    return check.then(function (remote) {
+    var findId = slugOnly
+      ? SMC.cloud.idForSlug(state.cloud.slug).then(function (found) { id = found; })
+      : Promise.resolve();
+    return findId.then(function () {
+      return id ? SMC.cloud.remoteInfo(id) : null;
+    }).then(function (remote) {
       if (id && !remote) id = null; // deleted in the meantime: save as new
       if (remote && state.cloud.updatedAt && new Date(remote.updated_at) > new Date(state.cloud.updatedAt)) {
         var ok = confirm('Someone (' + (remote.updated_by_email || 'another team member') + ') saved a newer version ' +
