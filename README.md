@@ -20,6 +20,8 @@ Your work is kept in that browser on that computer, so use **File, Save map file
 
 ## How it works
 
+The first time you open the app, a short guided tour shows you around, including how to sign in. Click **?** in the top bar to see it again. People who open a share link get a shorter tour of the view-only map.
+
 1. **Find the venue.** Type a place in the search box, for example "Pioneer Park Bright".
 2. **Pick your imagery.** Vicmap Aerial is the sharpest in Victoria and NSW Imagery is the sharpest in NSW. Esri World Imagery covers everywhere else. Tick **Roads** to add road names over the top.
 3. **Bring in the course.** File, then Import course GPX. Each track becomes a course line with its length shown. Or bring in a whole Google My Maps map (see below).
@@ -142,6 +144,7 @@ js/kml.js         Google My Maps and KML/KMZ import
 js/reports.js     equipment list and course points
 js/share.js       long view-only links (map packed into the link)
 js/cloud.js       Supabase sign-in, cloud save/open and short links
+js/tour.js        first-run guided tour (edit and view-only versions)
 supabase/setup.sql  database table and access rules for cloud maps
 js/app.js         the app itself
 ```

@@ -1346,6 +1346,15 @@
     }
   }
 
+  function startTour(mode, force) {
+    if (printMode || document.querySelector('dialog[open]')) return;
+    var hooks = {};
+    if (mode === 'edit' && SMC.cloud.available() && !SMC.cloud.isStaff()) {
+      hooks.signIn = function () { openSignIn(); };
+    }
+    SMC.tour.start(mode, force, hooks);
+  }
+
   function enterViewMode(doc) {
     viewMode = true;
     document.body.classList.add('view-mode');
@@ -1354,6 +1363,7 @@
     loadDocument(doc, true);
     // The sender framed the map on their screen; on a phone show everything instead.
     if (window.innerWidth < 900) fitAll();
+    setTimeout(function () { startTour('view'); }, 600);
   }
 
   function editCopy() {
@@ -1847,6 +1857,7 @@
     $('import-go').addEventListener('click', runImport);
 
     $('lists-btn').addEventListener('click', openLists);
+    $('help-btn').addEventListener('click', function () { startTour(viewMode ? 'view' : 'edit', true); });
     $('lists-close').addEventListener('click', function () { $('lists-dialog').close(); });
     $('lists-csv').addEventListener('click', downloadListCsv);
     $('lists-print').addEventListener('click', printList);
@@ -1952,6 +1963,7 @@
       renderTitle();
       resetHistory();
     }
+    setTimeout(function () { startTour('edit'); }, 600);
   }
 
   // Exposed for automated checks and console debugging.
