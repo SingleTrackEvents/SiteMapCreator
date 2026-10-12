@@ -471,3 +471,53 @@ body.print-mode .leaflet-control-scale-line {
 .tour-title { margin: 4px 0 6px; font-size: 17px; }
 .tour-body { margin: 0 0 14px; line-height: 1.5; white-space: pre-line; }
 .tour-actions { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* ================= always fit the screen width ================= */
+/* The page itself never scrolls sideways; everything flexes to fit instead. */
+html, body { max-width: 100%; overflow-x: hidden; }
+body { grid-template-columns: minmax(0, 1fr); }
+#workspace { grid-template-columns: clamp(190px, 17vw, 240px) minmax(0, 1fr) clamp(230px, 21vw, 280px); }
+body.view-mode #workspace { grid-template-columns: minmax(0, 1fr) clamp(240px, 24vw, 300px); }
+
+/* Top bars wrap onto a second row rather than spilling off screen. Buttons
+   keep their words on one line; the search box and imagery picker shrink. */
+#topbar, #printbar { flex-wrap: wrap; row-gap: 6px; min-width: 0; }
+#topbar > *, #printbar > * { flex-shrink: 0; white-space: nowrap; }
+#topbar .search { flex: 0 1 240px; min-width: 120px; }
+#topbar .search input { width: 100%; }
+#basemap-select { flex: 0 1 auto; min-width: 0; max-width: 210px; }
+.event-title { max-width: clamp(120px, 18vw, 260px); flex-shrink: 1 !important; }
+#topbar .spacer { flex: 1 1 0; min-width: 0; }
+.menu-items { max-width: calc(100vw - 24px); }
+
+@media (max-width: 1440px) {
+  #topbar .brand { display: none; }
+  #topbar { gap: 6px; }
+  #topbar button, #topbar select { padding: 6px 10px; }
+  #topbar .search { flex-basis: 200px; }
+  #basemap-select { max-width: 170px; }
+}
+
+@media (max-width: 900px) {
+  #workspace, body.view-mode #workspace { grid-template-columns: minmax(0, 1fr); }
+  #topbar { gap: 6px; padding: 6px 10px; }
+  #topbar button, #topbar select { padding: 5px 9px; font-size: 13px; }
+  #topbar .search { flex: 1 1 140px; }
+  #topbar .spacer { display: none; }
+  #printbar .hint { display: none; }
+}
+
+@media (max-width: 900px) {
+  /* Small screens: the map gets the room. Layers become one swipeable row
+     and the details panel scrolls in a shorter strip. */
+  #layerbar { flex-wrap: nowrap; overflow-x: auto; gap: 14px; font-size: 13px; padding: 6px 10px; }
+  #layerbar .check { flex-shrink: 0; }
+  #inspector { max-height: 30vh; padding: 10px 14px; }
+}
+
+@media (max-width: 520px) {
+  /* Phones: undo/redo are keyboard-friendly extras; keep the bar short. */
+  #undo-btn, #redo-btn { display: none; }
+  #topbar .check { font-size: 13px; }
+  #basemap-select { max-width: 150px; }
+}
