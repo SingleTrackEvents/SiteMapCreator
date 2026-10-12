@@ -521,3 +521,7 @@ body.view-mode #workspace { grid-template-columns: minmax(0, 1fr) clamp(240px, 2
   #topbar .check { font-size: 13px; }
   #basemap-select { max-width: 150px; }
 }
+
+/* Print layout with labels switched off: a clean site view, key kept. */
+body.print-no-labels .leaflet-tooltip.item-label { display: none; }
+#printbar .check { color: var(--bar-ink); }

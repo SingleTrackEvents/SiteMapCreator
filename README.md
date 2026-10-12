@@ -35,6 +35,8 @@ The first time you open the app, a short guided tour shows you around, including
 
 Layers you switch off at the bottom are left off the print, so you can make a council version and a volunteer version from the same map.
 
+For a cleaner site view, untick **Labels on map** in the print bar. The names come off the map but the key on the right stays.
+
 ## Importing from Google My Maps
 
 Already have the event in Google My Maps? Bring the lot across in one go.

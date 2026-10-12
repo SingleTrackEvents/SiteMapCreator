@@ -1285,11 +1285,18 @@
     }).join('');
   }
 
+  // The print view can hide every map label for a clean site view; the key
+  // on the right still explains each symbol.
+  function applyPrintLabels() {
+    document.body.classList.toggle('print-no-labels', !$('print-labels').checked);
+  }
+
   function enterPrint() {
     cancelPlacing();
     deselect();
     printMode = true;
     document.body.classList.add('print-mode');
+    applyPrintLabels();
     renderAll();
     renderPrintPanel();
     layoutPage();
@@ -1299,6 +1306,8 @@
     var center = map.getCenter(), zoom = map.getZoom();
     printMode = false;
     document.body.classList.remove('print-mode');
+    // Labels always come back for editing, whatever the print setting.
+    document.body.classList.remove('print-no-labels');
     var page = $('page');
     page.className = '';
     ['width', 'height', 'transform', 'left', 'top'].forEach(function (k) { page.style[k] = ''; });
@@ -1884,6 +1893,7 @@
     $('print-go').addEventListener('click', function () { window.print(); });
     $('paper-size').addEventListener('change', layoutPage);
     $('paper-orientation').addEventListener('change', layoutPage);
+    $('print-labels').addEventListener('change', applyPrintLabels);
     window.addEventListener('resize', function () { if (printMode) fitPreview(); });
 
     document.addEventListener('keydown', onKey);
