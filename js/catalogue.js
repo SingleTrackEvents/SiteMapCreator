@@ -79,6 +79,7 @@ SMC.TYPES = [
   { id: 'vehicle-route', name: 'Vehicle route', category: 'access', kind: 'line', color: '#1e88e5', weight: 4 },
   { id: 'pedestrian-route', name: 'Pedestrian route', category: 'access', kind: 'line', color: '#43a047', weight: 3, dashArray: '6 6' },
   { id: 'road-closure', name: 'Road closure', category: 'access', kind: 'point', color: '#c62828', glyph: 'RC' },
+  { id: 'bollard', name: 'Bollard', category: 'access', kind: 'point', color: '#37474f', glyph: 'BL' },
   { id: 'traffic-control', name: 'Traffic controller', category: 'access', kind: 'point', color: '#ef6c00', glyph: 'TC' },
   { id: 'shuttle', name: 'Shuttle / bus stop', category: 'access', kind: 'point', color: '#1e88e5', glyph: 'BUS' },
   { id: 'parking-point', name: 'Parking entry', category: 'access', kind: 'point', color: '#1e88e5', glyph: 'P' },

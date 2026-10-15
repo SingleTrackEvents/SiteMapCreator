@@ -215,6 +215,7 @@ SMC.kml = (function () {
     [/bag drop|drop bag/, 'bag-drop'],
     [/\binfo/, 'info'],
     [/road closure|closed road/, 'road-closure'],
+    [/bollard/, 'bollard'],
     [/traffic/, 'traffic-control'],
     [/\bbus\b|shuttle/, 'shuttle'],
     [/parking|car ?park/, 'parking-point'],
