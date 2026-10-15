@@ -78,6 +78,18 @@ People who open the link can:
 
 They can't change your map. If they need to, **Edit a copy** turns it into their own editable map in their browser.
 
+### Out in the field
+
+Open the share link on a phone and it becomes a field map for marshals, crew and anyone setting up.
+
+- Tap the **target button** under the zoom buttons to show where you are as a blue dot. The map follows you as you move. Drag the map to look around and tap the button again to centre back on yourself. Tap it once more to switch location off.
+- The panel lists what is **near you**, closest first, with the distance and direction to each (for example "Bollard #3, 40 m NE"). Tap one to jump to it.
+- Tap anything on the map and the details show **From you**, the distance and direction to it. For a fence, route or course it is to the nearest point along it.
+- Type a name in **Find on this map** to jump to an item, for example "bollard" or "aid station".
+- Zoomed out, only the selected item keeps its label so the map stays readable. Zoom in and the labels come back.
+
+Your location stays on the phone. It is never stored or sent anywhere. The browser asks once for permission to use location; if it was refused, allow location for the site in the phone's browser settings and try again.
+
 Good to know:
 
 - The whole map is packed inside the link, so nothing is stored online. That's why the link is long (about 9,000 characters for a full event). It's fine for email and chat apps but too long for a text message.

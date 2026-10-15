@@ -40,6 +40,31 @@ SMC.geo = (function () {
     return Math.sqrt(dx * dx + dy * dy);
   }
 
+  // Compass bearing from a to b in degrees, 0 = north, 90 = east.
+  function bearing(a, b) {
+    var lat = (a[0] + b[0]) / 2;
+    var dx = (b[1] - a[1]) * metresPerDegLng(lat);
+    var dy = (b[0] - a[0]) * M_PER_DEG_LAT;
+    return (Math.atan2(dx, dy) * 180 / Math.PI + 360) % 360;
+  }
+
+  // The closest spot on a line to a point: { point: [lat, lng], distance }.
+  function nearestOnLine(point, latlngs) {
+    var mx = metresPerDegLng(point[0]), my = M_PER_DEG_LAT;
+    var px = point[1] * mx, py = point[0] * my;
+    var best = { point: latlngs[0], distance: distance(point, latlngs[0]) };
+    for (var i = 1; i < latlngs.length; i++) {
+      var ax = latlngs[i - 1][1] * mx, ay = latlngs[i - 1][0] * my;
+      var bx = latlngs[i][1] * mx, by = latlngs[i][0] * my;
+      var dx = bx - ax, dy = by - ay, len2 = dx * dx + dy * dy;
+      var t = len2 ? Math.max(0, Math.min(1, ((px - ax) * dx + (py - ay) * dy) / len2)) : 0;
+      var qx = ax + t * dx, qy = ay + t * dy;
+      var d = Math.sqrt((qx - px) * (qx - px) + (qy - py) * (qy - py));
+      if (d < best.distance) best = { point: [qy / my, qx / mx], distance: d };
+    }
+    return best;
+  }
+
   function lineLength(latlngs) {
     var total = 0;
     for (var i = 1; i < latlngs.length; i++) total += distance(latlngs[i - 1], latlngs[i]);
@@ -118,6 +143,8 @@ SMC.geo = (function () {
     offset: offset,
     rectCorners: rectCorners,
     distance: distance,
+    bearing: bearing,
+    nearestOnLine: nearestOnLine,
     lineLength: lineLength,
     polygonArea: polygonArea,
     centroid: centroid,

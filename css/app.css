@@ -525,3 +525,37 @@ body.view-mode #workspace { grid-template-columns: minmax(0, 1fr) clamp(240px, 2
 /* Print layout with labels switched off: a clean site view, key kept. */
 body.print-no-labels .leaflet-tooltip.item-label { display: none; }
 #printbar .check { color: var(--bar-ink); }
+
+/* ================= out in the field (view-only mode) ================= */
+/* The Locate button sits under the zoom buttons. */
+body:not(.view-mode) .smc-locate-bar { display: none; }
+.smc-locate { display: flex !important; align-items: center; justify-content: center; color: #333; }
+.smc-locate.on { color: #1e88e5; }
+.smc-locate.following { background: #1e88e5 !important; color: #fff; }
+.smc-locate.searching svg { animation: smc-pulse 1.2s ease-in-out infinite; }
+.smc-you-dot { animation: smc-glow 2s ease-in-out infinite; }
+@keyframes smc-pulse { 50% { opacity: 0.35; } }
+@keyframes smc-glow { 50% { stroke-opacity: 0.6; } }
+
+#field-q { width: 100%; margin: 8px 0 4px; font-size: 16px; padding: 9px 10px; }
+#inspector-body.field-searching .field-idle { display: none; }
+.ov-item .ov-name { flex: 1; }
+.ov-item .field-dist { font-size: 12px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.field-from span:last-child { font-weight: 700; color: #1565c0; }
+
+/* Phones: only the selected item keeps its label when zoomed out. */
+body.sparse-labels .leaflet-tooltip.item-label:not(.sel) { display: none; }
+
+@media (max-width: 900px) {
+  /* Big enough to hit with a thumb, in gloves, while walking. */
+  body.view-mode .ov-item { padding: 10px 8px; min-height: 44px; font-size: 15px; }
+  body.view-mode .facts div { font-size: 14px; padding: 4px 0; }
+  body.view-mode a.btn, body.view-mode button.wide { padding: 11px 12px; font-size: 15px; }
+  body.view-mode #layerbar { padding: 10px 12px; gap: 18px; font-size: 14px; }
+  body.view-mode #layerbar input[type=checkbox] { width: 20px; height: 20px; }
+  body.view-mode .leaflet-bar a, body.view-mode .smc-locate { width: 40px; height: 40px; line-height: 40px; }
+  body.view-mode .smc-locate svg { width: 22px; height: 22px; }
+  body.view-mode .insp-type { font-size: 17px; }
+  /* A steady panel height, so the map does not jump when the list below it changes. */
+  body.view-mode #inspector { height: 34vh; max-height: none; }
+}
