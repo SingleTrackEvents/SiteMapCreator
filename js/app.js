@@ -41,6 +41,12 @@
   // True when the page was opened from a share link: nothing can be changed
   // and the viewer's own saved map in this browser is left alone.
   var viewMode = false;
+  // What the viewer typed into "Find on this map" (view-only mode).
+  var fieldQuery = '';
+  // Below this zoom, phones show only the selected item's label, so the
+  // map stays readable when the whole course is on screen.
+  var LABEL_ZOOM = 16;
+  var smallScreen = window.matchMedia('(max-width: 900px)');
 
   function defaultMeta() {
     return {
@@ -106,8 +112,17 @@
     map.on('click', onMapClick);
     map.on('pm:create', onDrawCreate);
     map.on('moveend', function () { if (!printMode) autosave(); });
+    map.on('zoomend', updateLabelDensity);
+    smallScreen.addEventListener('change', updateLabelDensity);
 
     setBasemap(state.view.basemap);
+  }
+
+  // Phones in view-only mode: labels only once zoomed in, apart from the
+  // selected item, which keeps its label at any zoom.
+  function updateLabelDensity() {
+    var sparse = viewMode && !printMode && smallScreen.matches && map.getZoom() < LABEL_ZOOM;
+    document.body.classList.toggle('sparse-labels', sparse);
   }
 
   function makeTileLayer(def) {
@@ -197,7 +212,7 @@
         permanent: true,
         direction: isPoint ? 'right' : 'center',
         offset: isPoint ? [(type.size || 26) / 2, 0] : [0, 0],
-        className: 'item-label'
+        className: 'item-label' + (selected ? ' sel' : '')
       });
     }
 
@@ -599,7 +614,11 @@
   function renderInspector() {
     var body = $('inspector-body');
     var item = findItem(selectedId);
-    if (viewMode) { body.innerHTML = item ? viewItemHtml(item) : viewOverviewHtml(); return; }
+    if (viewMode) {
+      body.innerHTML = item ? viewItemHtml(item) : viewOverviewHtml();
+      body.classList.toggle('field-searching', !item && !!fieldQuery.trim());
+      return;
+    }
     if (!item) { body.innerHTML = overviewHtml(); return; }
 
     var type = TYPES[item.type];
@@ -1296,6 +1315,7 @@
     deselect();
     printMode = true;
     document.body.classList.add('print-mode');
+    updateLabelDensity();
     applyPrintLabels();
     renderAll();
     renderPrintPanel();
@@ -1314,6 +1334,7 @@
     renderAll();
     map.invalidateSize({ pan: false });
     map.setView(center, zoom, { animate: false });
+    updateLabelDensity();
   }
 
   // ------------------------------------------------------- share links
@@ -1370,9 +1391,90 @@
     $('print-back').textContent = 'Back to map';
     $('print-hint').textContent = 'Frame the map, then click Print / Save as PDF and choose "Save as PDF" as the printer.';
     loadDocument(doc, true);
+    SMC.field.init(map, { status: status });
+    SMC.field.onUpdate(refreshFieldDistances);
     // The sender framed the map on their screen; on a phone show everything instead.
-    if (window.innerWidth < 900) fitAll();
+    if (smallScreen.matches) {
+      fitAll();
+      updateLabelDensity();
+      // No tour on a phone: a one-line hint, then out of the way.
+      status('Tap the target button on the map to see where you are.');
+      setTimeout(function () { status(''); }, 6000);
+      return;
+    }
     setTimeout(function () { startTour('view'); }, 600);
+  }
+
+  // ------------------------------------------------- field (view-only)
+
+  // Items on layers that are switched on, the ones a viewer can see.
+  function visibleItems() {
+    return state.items.filter(function (i) { return !state.hidden[TYPES[i.type].category]; });
+  }
+
+  function fieldRow(item, distanceText) {
+    var t = TYPES[item.type];
+    return '<button class="ov-item" data-id="' + item.id + '">' + swatch(t, itemColor(item)) +
+      '<span class="ov-name">' + esc(item.label || t.name) + '</span>' +
+      '<span class="field-dist muted" data-id="' + item.id + '">' + esc(distanceText || '') + '</span></button>';
+  }
+
+  // Matches for "Find on this map": by label or by type name.
+  function fieldResultsHtml() {
+    var q = fieldQuery.trim().toLowerCase();
+    if (!q) return '';
+    var hits = visibleItems().filter(function (i) {
+      return (i.label || '').toLowerCase().indexOf(q) !== -1 || TYPES[i.type].name.toLowerCase().indexOf(q) !== -1;
+    });
+    if (!hits.length) return '<p class="muted small">Nothing on the map matches "' + esc(fieldQuery.trim()) + '".</p>';
+    return '<div class="ov-cat">' + hits.length + (hits.length === 1 ? ' match' : ' matches') + '</div>' +
+      hits.slice(0, 40).map(function (i) {
+        var d = SMC.field.distanceTo(i);
+        return fieldRow(i, d ? d.text : '');
+      }).join('');
+  }
+
+  // The closest things to the viewer, or how to switch location on.
+  function fieldNearHtml() {
+    if (!SMC.field.position()) {
+      return '<p class="small muted">' + (SMC.field.active()
+        ? 'Waiting for a GPS fix…'
+        : 'Tap the target button on the map to see where you are and what is close by.') + '</p>';
+    }
+    // Course routes are left out: on the course, they are always "right here".
+    var near = SMC.field.nearest(visibleItems().filter(function (i) { return i.type !== 'course-line'; }), 8);
+    if (!near.length) return '<p class="small muted">Nothing on the map is near you yet.</p>';
+    return '<div class="ov-cat">Near you</div>' + near.map(function (n) {
+      return fieldRow(n.item, n.distance.text);
+    }).join('');
+  }
+
+  // A new GPS fix: refresh the distances on screen without rebuilding the
+  // panel, so a search box being typed in keeps its focus.
+  function refreshFieldDistances() {
+    if (!viewMode) return;
+    var near = $('field-near');
+    if (near) near.innerHTML = fieldNearHtml();
+    var spans = document.querySelectorAll('.field-dist[data-id]');
+    for (var i = 0; i < spans.length; i++) {
+      var item = findItem(spans[i].getAttribute('data-id'));
+      var d = item && SMC.field.distanceTo(item);
+      spans[i].textContent = d ? d.text : '';
+    }
+    var from = $('field-from');
+    if (from) {
+      var sel = findItem(selectedId);
+      var fd = sel && SMC.field.distanceTo(sel);
+      from.hidden = !fd;
+      if (fd) from.querySelector('span:last-child').textContent = fd.text;
+    }
+  }
+
+  function onFieldSearch(value) {
+    fieldQuery = value;
+    var results = $('field-results');
+    if (results) results.innerHTML = fieldResultsHtml();
+    $('inspector-body').classList.toggle('field-searching', !!fieldQuery.trim());
   }
 
   function editCopy() {
@@ -1382,7 +1484,9 @@
     // A copy is its own map: saving it must not overwrite the shared original.
     doc.cloud = null;
     viewMode = false;
+    SMC.field.stop();
     document.body.classList.remove('view-mode');
+    updateLabelDensity();
     $('print-back').textContent = 'Back to editing';
     $('print-hint').textContent = 'Pan and zoom the map to frame it. Layers switched off are left off the print.';
     // `history` is the undo stack in this file, so reach the browser's own explicitly.
@@ -1398,10 +1502,17 @@
     var html = '<div class="insp-type">' + esc(m.name || 'Site map') + '</div>';
     var sub = [m.subtitle, m.venue, m.date ? formatDate(m.date) : ''].filter(Boolean);
     if (sub.length) html += '<p class="muted small">' + sub.map(esc).join('<br>') + '</p>';
-    html += '<p class="small">Click anything on the map for details. Use the layers along the bottom to show or hide groups.</p>';
+    html += '<input id="field-q" type="search" placeholder="Find on this map, e.g. Bollard 3" autocomplete="off" ' +
+      'enterkeyhint="search" value="' + esc(fieldQuery) + '">';
+    html += '<div id="field-results">' + fieldResultsHtml() + '</div>';
+    html += '<div class="field-idle">';
+    html += '<div id="field-near">' + fieldNearHtml() + '</div>';
+    html += '<p class="small muted">Tap anything on the map for details. Use the layers along the bottom to show or hide groups.</p>';
+    html += '<button id="o-fit" class="wide">Zoom to the whole map</button>';
     if (m.contact) html += '<div class="facts"><div><span class="muted">Contact on the day</span><span>' + esc(m.contact) + '</span></div></div>';
     if (m.notes) html += '<div class="pp-heading">Notes</div><p class="small pre">' + esc(m.notes) + '</p>';
     html += '<div class="pp-heading" style="margin-top:14px">Legend</div><div class="view-legend">' + legendHtml() + '</div>';
+    html += '</div>';
     return html;
   }
 
@@ -1418,7 +1529,10 @@
     var facts = rows.map(function (r) {
       return '<div><span class="muted">' + r[0] + '</span><span>' + r[1] + '</span></div>';
     }).join('');
-    html += '<div class="facts">' + facts + factsHtml(item) + '</div>';
+    var fromYou = SMC.field.distanceTo(item);
+    var fromRow = '<div id="field-from" class="field-from"' + (fromYou ? '' : ' hidden') +
+      '><span class="muted">From you</span><span>' + esc(fromYou ? fromYou.text : '') + '</span></div>';
+    html += '<div class="facts">' + fromRow + facts + factsHtml(item) + '</div>';
     if (t.kind === 'point' || t.kind === 'rect') {
       var all = SMC.reports.distancesFor(item, state.items);
       if (all.length) {
@@ -1781,6 +1895,7 @@
       applyLayerVisibility();
       commit();
       if (printMode) renderPrintPanel();
+      if (viewMode && !selectedId) renderInspector();
     });
 
     $('inspector-body').addEventListener('click', function (e) {
@@ -1788,6 +1903,15 @@
       if (ov) focusItem(ov.getAttribute('data-id'));
       if (e.target.id === 'o-event') openEventDialog();
       if (e.target.id === 'o-fit') fitAll();
+    });
+    $('inspector-body').addEventListener('input', function (e) {
+      if (e.target.id === 'field-q') onFieldSearch(e.target.value);
+    });
+    $('inspector-body').addEventListener('keydown', function (e) {
+      if (e.target.id !== 'field-q' || e.key !== 'Enter') return;
+      e.preventDefault();
+      var first = document.querySelector('#field-results .ov-item');
+      if (first) { e.target.blur(); focusItem(first.getAttribute('data-id')); }
     });
 
     $('event-title').addEventListener('click', function () { if (!viewMode) openEventDialog(); });

@@ -60,6 +60,10 @@ SMC.tour = (function () {
     { target: '#stage', title: 'Explore the map',
       body: 'Drag to move and scroll or pinch to zoom. Click any item for its details, like leads, cut-offs and how far ' +
         'along the course it is. Points have an Open in Google Maps button for directions.' },
+    { target: '.smc-locate', title: 'Where am I?',
+      body: 'Out on the course, tap the target button to show where you are. The panel then lists what is near you, ' +
+        'and every item shows how far away it is and in which direction. Type a name in "Find on this map" to jump ' +
+        'to it.' },
     { target: '#layerbar', title: 'Layers',
       body: 'Switch groups on and off to see just what you need.' },
     { target: '#lists-btn', title: 'Lists',
