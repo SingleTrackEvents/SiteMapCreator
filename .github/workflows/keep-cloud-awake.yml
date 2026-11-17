@@ -1,0 +1,37 @@
+# Supabase pauses free projects after about a week with no activity, which
+# switches off sign-in, cloud maps and short links. This opens the database
+# once a week to keep it awake. If the run fails, GitHub emails the repo
+# owner: the project has probably been paused and needs restoring in Supabase.
+name: Keep cloud maps awake
+
+on:
+  schedule:
+    - cron: '17 21 * * 0' # Mondays about 8am Melbourne time
+  workflow_dispatch:
+
+permissions:
+  actions: write # lets the last step keep this schedule switched on
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Open the cloud maps database
+        run: |
+          # The address and publishable key are public; they're in js/cloud.js.
+          code=$(curl -s -o response.json -w '%{http_code}' -X POST \
+            'https://mizwsarhveepdwknupky.supabase.co/rest/v1/rpc/get_shared_map' \
+            -H 'apikey: sb_publishable_5aknaLXSWZl87yylnCytvA_N90af4Uy' \
+            -H 'Content-Type: application/json' \
+            -d '{"p_slug":"keep-awake"}')
+          echo "HTTP $code"; head -c 300 response.json; echo
+          if [ "$code" != 200 ]; then
+            echo "::error::Supabase did not answer. The project may be paused: restore it at supabase.com/dashboard."
+            exit 1
+          fi
+
+      - name: Keep this weekly schedule switched on
+        # GitHub turns schedules off after 60 days with no commits.
+        run: gh api -X PUT "repos/${{ github.repository }}/actions/workflows/keep-cloud-awake.yml/enable"
+        env:
+          GH_TOKEN: ${{ github.token }}

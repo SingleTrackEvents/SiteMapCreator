@@ -119,6 +119,8 @@ Only team members (accounts that entered the join code) can list, save or delete
    Run the same line with a new code any time to change it. People who already joined stay in.
 3. In Supabase, Authentication, Sign In / Providers, Email: turn **Confirm email** off.
 
+**Keeping it awake.** Supabase pauses free projects after about a week with no use, which switches off sign-in, cloud maps and short links. A weekly GitHub check (**Actions, Keep cloud maps awake**) opens the database every Monday morning to stop that. If the check fails, GitHub emails the repo owner: go to supabase.com/dashboard, open the project and click **Restore project**. You can also run the check by hand from the Actions tab.
+
 ## Saving your work
 
 - Your current map is kept in the browser automatically, so a refresh will not lose it.
