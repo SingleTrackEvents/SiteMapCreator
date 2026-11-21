@@ -9,8 +9,8 @@
 window.SMC = window.SMC || {};
 
 SMC.cloud = (function () {
-  var SUPABASE_URL = 'https://mizwsarhveepdwknupky.supabase.co';
-  var SUPABASE_KEY = 'sb_publishable_5aknaLXSWZl87yylnCytvA_N90af4Uy';
+  var SUPABASE_URL = 'https://bvbtscdrlzqkyegtsjxl.supabase.co';
+  var SUPABASE_KEY = 'sb_publishable_mLwX0KGyJ17Vsgvzp_yoQg_0rfZqIW8';
   var STAFF_DOMAIN = '@singletrack.com.au';
   var TABLE = 'site_maps';
 

@@ -20,8 +20,8 @@ jobs:
         run: |
           # The address and publishable key are public; they're in js/cloud.js.
           code=$(curl -s -o response.json -w '%{http_code}' -X POST \
-            'https://mizwsarhveepdwknupky.supabase.co/rest/v1/rpc/get_shared_map' \
-            -H 'apikey: sb_publishable_5aknaLXSWZl87yylnCytvA_N90af4Uy' \
+            'https://bvbtscdrlzqkyegtsjxl.supabase.co/rest/v1/rpc/get_shared_map' \
+            -H 'apikey: sb_publishable_mLwX0KGyJ17Vsgvzp_yoQg_0rfZqIW8' \
             -H 'Content-Type: application/json' \
             -d '{"p_slug":"keep-awake"}')
           echo "HTTP $code"; head -c 300 response.json; echo
